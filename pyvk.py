@@ -3,11 +3,11 @@
 import urllib
 import urllib2
 import cookielib
-
-from BeautifulSoup import BeautifulSoup
+import lxml.html
+import urlparse
 
 class Pyvk:
-    def __init__(self, login, password):
+    def __init__(self, login = None, password = None):
         self.login = login
         self.password = password
         self.login_url = 'https://login.vk.com'
@@ -17,17 +17,37 @@ class Pyvk:
         self.cj = cookielib.CookieJar()
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
         self.opener.addheaders.append(('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36'))
-
-        self.main_cookies = {}
+        self.qd = {}
         self.action_login()
+
+    # get ip_h
+    def get_ip_h(self):
+        try:
+            resp = self.opener.open(self.vk_url)
+            if resp.getcode() == 200:
+                page = resp.read()
+                tree = lxml.html.fromstring(page)
+                action = tree.xpath('.//form[@action]')[0].get('action')
+                o = urlparse.urlparse(action)
+                qd = urlparse.parse_qs(o.query)
+                self.qd['ip_h'] = qd.get('ip_h')[0]
+                self.qd['_origin'] = qd.get('_origin')[0]
+                self.qd['act'] = qd.get('act')[0]
+                self.qd['utf8'] = qd.get('utf8')[0]
+                return self.qd
+            else:
+                return None
+        except Exception, e:
+            return None
 
     # login
     def action_login(self):
+        qd = self.get_ip_h()
         data = {
-            'act' : 'login',
+            'act' : qd.get('act'),
             'to' : '',
-            '_origin' : 'http://vk.com',
-            'ip_h' : '9688341f22da58212d',
+            '_origin' : qd.get('_origin'),
+            'ip_h' : qd.get('ip_h'),
             'email' : self.login,
             'pass' : self.password,
             'expire' : '',
@@ -35,12 +55,9 @@ class Pyvk:
 
         data = urllib.urlencode(data)
         try:
-            resp = self.opener.open(self.quick_login_url, data)
+            resp = self.opener.open(self.login_url, data)
             if resp.getcode() == 200:
-                self.main_cookies = {
-                    'remixsid' : self.cj._cookies['.vk.com']['/']['remixsid'].value,
-                    'remixlang' : self.cj._cookies['.vk.com']['/']['remixlang'].value,
-                    }
+                return self.cj._cookies
         except Exception, e:
             print e
 
@@ -50,7 +67,7 @@ class Pyvk:
 
     # get page
     def get_page(self, url):
-        if not self.main_cookies:
+        if not self.cj._cookies:
             self.action_login()
         try:
             resp = self.opener.open(url)
@@ -61,16 +78,6 @@ class Pyvk:
         except Exception, e:
             return None
 
-    # get urls
-    def get_urls(self, url):
-        links = set()
-        page = self.get_page()
-        if page:
-            soup = BeautifulSoup(page)
-            for link in soup.findAll('a'):
-                links.add(link.get('href'))
-        return [links]
-
     # get my friends
     def get_my_friends(self, section = None):
         friends = []
@@ -79,14 +86,9 @@ class Pyvk:
             friends_page = self.get_page(self.vk_url + '/friends?section=' + section)
         friends_page = self.get_page(self.vk_url + '/friends')
         if friends_page:
-            soup = BeautifulSoup(friends_page)
-            f_count = soup.findAll('em', attrs={'class' : "tab_counter"})[0].contents[0]
-            for f in soup.findAll('a', attrs = {'class' : "si_owner"}):
-                friend = {
-                    'link' : self.vk_url + f['href'],
-                    'name' : f.contents[0]
-                }
-                friends.append(friend)
+            tree = lxml.html.fromstring(friends_page)
+            for f in tree.xpath('.//a[@class="si_owner"]/@href'):
+                friends.append(f.replace('/', ''))
         return friends
 
     # get my groups
@@ -94,13 +96,14 @@ class Pyvk:
         groups = []
         groups_page = self.get_page(self.vk_url + '/groups')
         if groups_page:
-            soup = BeautifulSoup(groups_page)
-            for g in soup.findAll('a', attrs = {'class' : 'simple_fit_item'}):
-                groups.append(self.vk_url + g['href'])
+            tree = lxml.html.fromstring(groups_page)
+            for g in tree.xpath('.//a[@class="simple_fit_item"]/@href'):
+                groups.append(self.vk_url + g)
         return groups
 
 mylogin = 'mylogin'
 mypass = 'mypass'
 
 bot = Pyvk(login = mylogin, password = mypass)
-print bot.get_groups()
+print bot.get_my_friends()
+print bot.get_my_groups()
