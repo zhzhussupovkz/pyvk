@@ -11,7 +11,6 @@ class Pyvk:
         self.login = login
         self.password = password
         self.login_url = 'https://login.vk.com'
-        self.quick_login_url = 'https://login.vk.com/?act=login'
         self.vk_url = 'https://vk.com'
 
         self.cj = cookielib.CookieJar()
