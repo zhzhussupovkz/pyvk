@@ -5,6 +5,7 @@ import urllib2
 import cookielib
 import lxml.html
 import urlparse
+import ast
 
 class Pyvk:
     def __init__(self, login = None, password = None):
@@ -38,6 +39,16 @@ class Pyvk:
                 return None
         except Exception, e:
             return None
+
+    # post request
+    def post_request(self, url, data):
+        data = urllib.urlencode(data)
+        try:
+            resp = self.opener.open(self.vk_url+ '/' + url, data)
+            if resp.getcode() == 200:
+                return resp.read()
+        except Exception, e:
+            print e
 
     # login
     def action_login(self):
@@ -79,16 +90,25 @@ class Pyvk:
             return None
 
     # get my friends
-    def get_my_friends(self, section = None):
+    def get_my_friends(self):
         friends = []
-        sections = ['all', 'online']
-        if section and section in sections:
-            friends_page = self.get_page(self.vk_url + '/friends?section=' + section)
         friends_page = self.get_page(self.vk_url + '/friends')
         if friends_page:
             tree = lxml.html.fromstring(friends_page)
-            for f in tree.xpath('.//a[@class="si_owner"]/@href'):
-                friends.append(f.replace('/', ''))
+            my_id = tree.xpath('.//input[@name="id"]/@value')
+            data = {
+                'act' : 'load_friends_silent',
+                'al' : '1',
+                'gid' : '0',
+                'id' : my_id[0],
+            }
+            friends_data = self.post_request("al_friends.php", data)
+            start = friends_data.find('all')
+            end = friends_data.find(',\"all_requests\"')
+            final = friends_data[start:end].replace('all":', '').strip()
+            friends_list = ast.literal_eval(final)
+            for f in friends_list:
+                friends.append('id' + f[0])
         return friends
 
     # get my groups
@@ -97,8 +117,20 @@ class Pyvk:
         groups_page = self.get_page(self.vk_url + '/groups')
         if groups_page:
             tree = lxml.html.fromstring(groups_page)
-            for g in tree.xpath('.//a[@class="simple_fit_item"]/@href'):
-                groups.append(self.vk_url + g)
+            my_id = tree.xpath('.//input[@name="id"]/@value')
+            data = {
+                'act' : 'get_list',
+                'al' : '1',
+                'mid' : my_id[0],
+                'tab' : 'groups',
+            }
+            groups_data = self.post_request("al_groups.php", data)
+            start = groups_data.find('[[')
+            final = groups_data[start:].replace('[[', '').replace(']]', '').strip()
+            for gl in final.split('],['):
+                gid = str(gl.split(',')[2])
+                if gid.isdigit():
+                    groups.append('public' + gid)
         return groups
 
 mylogin = 'mylogin'
