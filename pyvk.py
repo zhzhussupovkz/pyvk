@@ -47,6 +47,7 @@ class Pyvk:
             'to' : '',
             '_origin' : qd.get('_origin'),
             'ip_h' : qd.get('ip_h'),
+            'utf8' : qd.get('utf8'),
             'email' : self.login,
             'pass' : self.password,
             'expire' : '',
