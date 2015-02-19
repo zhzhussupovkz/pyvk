@@ -133,6 +133,24 @@ class Pyvk:
                     groups.append('public' + gid)
         return groups
 
+    # get user's friends
+    def get_friends(self, user_id):
+        friends = []
+        data = {
+            'act' : 'load_friends_silent',
+            'al' : '1',
+            'gid' : '0',
+            'id' : user_id,
+        }
+        friends_data = self.post_request("al_friends.php", data)
+        start = friends_data.find('all')
+        end = friends_data.find(']]}') + 2
+        final = friends_data[start:end].replace('all":', '').strip()
+        friends_list = ast.literal_eval(final)
+        for f in friends_list:
+            friends.append('id' + f[0])
+        return friends
+
 mylogin = 'mylogin'
 mypass = 'mypass'
 
