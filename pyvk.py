@@ -151,9 +151,29 @@ class Pyvk:
             friends.append('id' + f[0])
         return friends
 
+    # get user's audios
+    def get_audios(self, user_id):
+        audios = []
+        data = {
+            'act' : 'load_audios_silent',
+            'al' : '1',
+            'id' : user_id,
+            'please_dont_ddos':'1',
+        }
+        audios_data = self.post_request('audio', data)
+        start = audios_data.find('all')
+        end = audios_data.find(']]}') + 2
+        final = audios_data[start:end].replace('all":', '').strip()
+        audios_list = ast.literal_eval(final)
+        for a in audios_list:
+            mp3 = a[2][:a[2].find('.mp3')+4]
+            audios.append(mp3)
+        return audios
+
 mylogin = 'mylogin'
 mypass = 'mypass'
 
 bot = Pyvk(login = mylogin, password = mypass)
 print bot.get_my_friends()
 print bot.get_my_groups()
+
