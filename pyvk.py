@@ -1,11 +1,35 @@
 # -*- coding: utf-8 -*-
 
+# The MIT License (MIT)
+
+# Copyright (c) 2015 Zhassulan Zhussupov
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import urllib
 import urllib2
 import cookielib
 import lxml.html
 import urlparse
 import ast
+import sys
+import os
 
 class Pyvk:
     def __init__(self, login = None, password = None):
@@ -170,10 +194,44 @@ class Pyvk:
             audios.append(mp3)
         return audios
 
+    # download user's audios
+    def download_audios(self, user_id, n = 2):
+        audios = self.get_audios(user_id)
+        print "User: %s. Audios: %s (all), %s (download)" % (user_id, len(audios), n)
+        if len(audios) > 0:
+            for track in audios[:n]:
+                trackname = track.split('/')[-1]
+                filename = './id%s/%s' % (str(user_id), trackname)
+                try:
+                    resp = urllib2.urlopen(track)
+                    if resp.getcode() == 200:
+                        if not os.path.exists(os.path.dirname(filename)):
+                            os.makedirs(os.path.dirname(filename))
+                        size = resp.info().getheaders('Content-Length')[0]
+                        print "Starting downloading track: %s. Size: %s bytes" % (track, size)
+                        f = open(filename, "wb")
+                        downloaded = 0
+                        block = 2048
+                        while True:
+                            buffer = resp.read(block)
+                            if not buffer:
+                                break
+                            downloaded += len(buffer)
+                            f.write(buffer)
+                            p = float(downloaded) / int(size)
+                            status = r"{0}  [{1:.2%}]".format(downloaded, p)
+                            status = status + chr(8)*(len(status)+1)
+                            sys.stdout.write(status)
+                        f.close()
+                        print "Track %s: OK" % filename
+                    else:
+                        print "Track %s: NOK. Server response code: %s" % (filename, resp.getcode())
+                except Exception, e:
+                    print "Cannot download track %s: NOK" % filename
+                    print e
+
 mylogin = 'mylogin'
 mypass = 'mypass'
 
 bot = Pyvk(login = mylogin, password = mypass)
 print bot.get_my_friends()
-print bot.get_my_groups()
-
