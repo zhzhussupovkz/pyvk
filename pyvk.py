@@ -30,6 +30,7 @@ import urlparse
 import ast
 import sys
 import os
+import json
 
 class Pyvk:
     def __init__(self, login = None, password = None):
@@ -230,8 +231,24 @@ class Pyvk:
                     print "Cannot download track %s: NOK" % filename
                     print e
 
-mylogin = 'mylogin'
-mypass = 'mypass'
-
-bot = Pyvk(login = mylogin, password = mypass)
-print bot.get_my_friends()
+    # get user's photo
+    def get_photo(self, user_id):
+        data = {
+            'act' : 'fast_get_photo',
+            'al' : '1',
+            'oid' : user_id,
+        }
+        photo_data = self.post_request('al_photos.php', data)
+        start = photo_data.find('_id') - 2
+        end = photo_data.find('}}') + 2
+        try:
+            final = json.loads(photo_data[start:end].strip())
+            img_link = final.get('temp').get('base') + final.get('temp').get('z_')[0] + '.jpg'
+            resp = urllib2.urlopen(img_link)
+            filename = './id%s.jpg' % user_id
+            f = open(filename, "wb")
+            f.write(resp.read())
+            f.close()
+        except Exception, e:
+            print "Cannot get user's photo"
+            print e
