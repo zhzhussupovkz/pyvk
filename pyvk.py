@@ -34,7 +34,7 @@ import json
 
 class Pyvk:
 
-    FRIENDS = 'al_friends.php'
+    FRIENDS_URL = 'al_friends.php'
     GROUPS_URL = 'al_groups.php'
     AUDIOS_URL = 'audio'
     PHOTOS_URL = 'al_photos.php'
@@ -134,7 +134,7 @@ class Pyvk:
                 'gid' : '0',
                 'id' : my_id[0],
             }
-            friends_data = self.post_request("al_friends.php", data)
+            friends_data = self.post_request(self.FRIENDS_URL, data)
             start = friends_data.find('all')
             end = friends_data.find(',\"all_requests\"')
             final = friends_data[start:end].replace('all":', '').strip()
@@ -156,7 +156,7 @@ class Pyvk:
                 'mid' : my_id[0],
                 'tab' : 'groups',
             }
-            groups_data = self.post_request("al_groups.php", data)
+            groups_data = self.post_request(self.GROUPS_URL, data)
             start = groups_data.find('[[')
             final = groups_data[start:].replace('[[', '').replace(']]', '').strip()
             for gl in final.split('],['):
@@ -174,7 +174,7 @@ class Pyvk:
             'gid' : '0',
             'id' : user_id,
         }
-        friends_data = self.post_request("al_friends.php", data)
+        friends_data = self.post_request(self.FRIENDS_URL, data)
         start = friends_data.find('all')
         end = friends_data.find(']]}') + 2
         final = friends_data[start:end].replace('all":', '').strip()
@@ -192,7 +192,7 @@ class Pyvk:
             'id' : user_id,
             'please_dont_ddos':'1',
         }
-        audios_data = self.post_request('audio', data)
+        audios_data = self.post_request(self.AUDIOS_URL, data)
         start = audios_data.find('all')
         end = audios_data.find(']]}') + 2
         final = audios_data[start:end].replace('all":', '').strip()
@@ -245,7 +245,7 @@ class Pyvk:
             'al' : '1',
             'oid' : user_id,
         }
-        photo_data = self.post_request('al_photos.php', data)
+        photo_data = self.post_request(self.PHOTOS_URL, data)
         start = photo_data.find('_id') - 2
         end = photo_data.find('}}') + 2
         try:
@@ -270,13 +270,13 @@ class Pyvk:
             'oid' : '-' + group_id,
             'tab' : 'members',
         }
-        members_data = self.post_request('al_page.php', data)
+        members_data = self.post_request(self.PAGE_URL, data)
         members_count_str = members_data[members_data.find('<span class="fans_count">'):members_data.find('</span></nobr>')]
         count = members_count_str.replace('<span class="fans_count">', '').replace('<span class="num_delim">', '').replace('</span>', '').replace(' ', '')
         c = int(count)/60
         while j < c+1:
             if j == 0:
-                members_data = self.post_request('al_page.php', data)
+                members_data = self.post_request(self.PAGE_URL, data)
                 if members_data:
                     start = members_data.find('div class="fans_rows"') - 1
                     end = members_data.find('a class="fans_more_link"') - 1
@@ -287,7 +287,7 @@ class Pyvk:
                         members.add(user.replace('/', ''))
             else:
                 data['offset'] = j * 60
-                members_data = self.post_request('al_page.php', data)
+                members_data = self.post_request(self.PAGE_URL, data)
                 if members_data:
                     start = members_data.find('div class="fans_fan_row inl_bl"') - 1
                     end = members_data.find('<!><!int>')
