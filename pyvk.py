@@ -40,7 +40,7 @@ class Pyvk:
     PHOTOS_URL = 'al_photos.php'
     PAGE_URL = 'al_page.php'
 
-    def __init__(self, login = None, password = None):
+    def __init__(self, login, password):
         self.login = login
         self.password = password
         self.login_url = 'https://login.vk.com'
