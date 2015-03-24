@@ -31,6 +31,7 @@ import ast
 import sys
 import os
 import json
+import re
 
 class Pyvk:
 
@@ -39,6 +40,7 @@ class Pyvk:
     AUDIOS_URL = 'audio'
     PHOTOS_URL = 'al_photos.php'
     PAGE_URL = 'al_page.php'
+    SEARCH_URL = 'al_search.php'
 
     def __init__(self, login, password):
         self.login = login
@@ -299,3 +301,52 @@ class Pyvk:
             j += 1
         members = list(members)
         return members
+
+    # simple people search
+    def people_search(self, query):
+        peoples = set()
+        j = 0
+        data = {
+            'al' : '1',
+            'c[name]' : '1',
+            'c[photo]' : '1',
+            'c[q]' : query,
+            'c[section]' : 'people',
+            'change' : '1',
+        }
+        peoples_data = self.post_request(self.SEARCH_URL, data)
+        f = peoples_data.find('"summary":"') + 11
+        t = peoples_data.find('","auto_rows"')
+        peoples_count_str = peoples_data[f:t].strip()
+        count = re.sub("[^0-9]", "", peoples_count_str)
+        c = int(count)/40 if int(count) < 200 else 5
+        while j < c+1:
+            if j == 0:
+                peoples_data = self.post_request(self.SEARCH_URL, data)
+                if peoples_data:
+                    try:
+                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                        end = peoples_data.find('<div id="show_more">')
+                        final = peoples_data[start:end]
+                        tree = lxml.html.fromstring(final)
+                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+                        for user in user_ids:
+                            peoples.add(user.replace('/', ''))
+                    except Exception, e:
+                        print e
+            else:
+                data['offset'] = j * 40
+                peoples_data = self.post_request(self.SEARCH_URL, data)
+                if peoples_data:
+                    try:
+                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                        final = peoples_data[start:]
+                        tree = lxml.html.fromstring(final)
+                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+                        for user in user_ids:
+                            peoples.add(user.replace('/', ''))
+                    except Exception, e:
+                        print e
+            j += 1
+        peoples = list(peoples)
+        return peoples
