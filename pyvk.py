@@ -342,9 +342,9 @@ class Pyvk:
                         start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
                         final = peoples_data[start:]
                         tree = lxml.html.fromstring(final)
-                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
                         for user in user_ids:
-                            peoples.add(user.replace('/', ''))
+                            peoples.add(re.sub("[^0-9]", "", user))
                     except Exception, e:
                         print e
             j += 1
