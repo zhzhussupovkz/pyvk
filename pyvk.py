@@ -37,6 +37,7 @@ class Pyvk:
 
     FRIENDS_URL = 'al_friends.php'
     GROUPS_URL = 'al_groups.php'
+    CLUBS_URL = 'al_fans.php'
     AUDIOS_URL = 'audio'
     PHOTOS_URL = 'al_photos.php'
     PAGE_URL = 'al_page.php'
@@ -47,6 +48,7 @@ class Pyvk:
         self.password = password
         self.login_url = 'https://login.vk.com'
         self.vk_url = 'https://vk.com'
+        self.mobile_vk_url = 'http://m.vk.com'
 
         self.cj = cookielib.CookieJar()
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
@@ -180,10 +182,59 @@ class Pyvk:
         start = friends_data.find('all')
         end = friends_data.find(']]}') + 2
         final = friends_data[start:end].replace('all":', '').strip()
+        final = unicode(final, 'cp1251')
         friends_list = ast.literal_eval(final)
         for f in friends_list:
-            friends.append('id' + f[0])
+            # friends.append('id' + f[0])
+            image = f[1]
+            if 'camera' in f[1] or 'deactivated' in f[1]:
+                image = self.vk_url + f[1]
+
+            current = {
+                'id' : f[0],
+                'image' : image,
+                'link' : self.vk_url + "/id" + f[0],
+                'label' : f[5],
+            }
+            friends.append(current)
         return friends
+
+    # get user's groups
+    def get_groups(self, user_id):
+        groups = []
+        try:
+            data = {
+                'act' : 'load_idols',
+                'al' : '1',
+                'oid' : str(user_id),
+            }
+
+            groups_data = self.post_request(self.CLUBS_URL, data)
+            if groups_data:
+                start = groups_data.find('[[')
+                final = groups_data[start:].replace('[[', '').replace(']]', '').strip()
+                final = unicode(final, "cp1251")
+                for g in final.split("],["):
+                    g = '[' + g + ']'
+                    g = g.replace('false', '0').replace('true', '1')
+
+                    group_param_list = ast.literal_eval(g)
+
+                    image = group_param_list[3]
+                    if 'camera' in group_param_list[3] or 'deactivated' in group_param_list[3]:
+                        image = self.vk_url + group_param_list[3]
+
+                    current = {
+                        'id' : re.sub("[^0-9]", "", str(group_param_list[0])),
+                        'label' : group_param_list[2],
+                        'image' : image,
+                        'link' : self.vk_url + '/club' + str(re.sub("[^0-9]", "", str(group_param_list[0]))),
+                    }
+
+                    groups.append(current)
+        except Exception, e:
+            print e
+        return groups
 
     # get user's audios
     def get_audios(self, user_id):
@@ -240,8 +291,8 @@ class Pyvk:
                     print "Cannot download track %s: NOK" % filename
                     print e
 
-    # get user's photo
-    def get_photo(self, user_id):
+    # download user's photo
+    def download_photo(self, user_id):
         data = {
             'act' : 'fast_get_photo',
             'al' : '1',
@@ -259,12 +310,257 @@ class Pyvk:
             f.write(resp.read())
             f.close()
         except Exception, e:
+            print "Cannot download user's photo"
+            print e
+
+    # get user's photo link
+    def get_photo_link(self, user_id):
+        data = {
+            'act' : 'fast_get_photo',
+            'al' : '1',
+            'oid' : user_id,
+        }
+        photo_data = self.post_request(self.PHOTOS_URL, data)
+        start = photo_data.find('_id') - 2
+        end = photo_data.find('}}') + 2
+        try:
+            final = json.loads(photo_data[start:end].strip())
+            img_link = final.get('temp').get('base') + final.get('temp').get('z_')[0] + '.jpg'
+            return img_link
+        except Exception, e:
             print "Cannot get user's photo"
             print e
+        return None
+
+    # parse photo link from account page
+    def parse_photo_link_from_page(self, user_id):
+        page = self.get_page(self.vk_url + "/id%s" % user_id)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                images = tree.xpath('.//img[@class="pp_img"]/@src')
+                if images:
+                    return images[0]
+            except Exception, e:
+                print e
+        return None
+
+    def clean_key(self, key):
+        key = key.strip()
+        cl = [".", "(", ")", ",", "@", " ", ".."]
+        for c in cl:
+            key = key.replace(c, "_")
+        return key
+
+
+    # get account name with photo
+    def get_account_name(self, user_id):
+        url = self.mobile_vk_url + "/id%s?act=info" % user_id
+        info = {}
+        page = self.get_page(url)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                image = tree.xpath('.//img[@class="op_img"]/@src')
+                pp_image = tree.xpath('.//img[@class="pp_img"]/@src')
+
+                # account main image (from mobile version)
+                if image:
+                    info['image'] = image[0]
+                elif pp_image:
+                    info['image'] = pp_image[0]
+
+                name = tree.xpath('.//div[@class="op_cont"]//h2[@class="op_header"]')
+                pp_name = tree.xpath('.//div[@class="pp_cont"]//h2[@class="op_header"]')
+                
+                # account name in header
+                if name:
+                    info['name'] = name[0].text
+                elif pp_name:
+                    info['name'] = pp_name[0].text
+            except Exception, e:
+                print e
+        return info
+
+    # get group name with photo
+    def get_group_name(self, group_id):
+        url = self.mobile_vk_url + "/club%s" % group_id
+        info = {}
+        page = self.get_page(url)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                image = tree.xpath('.//img[@class="op_img"]/@src')
+                pp_image = tree.xpath('.//img[@class="pp_img"]/@src')
+
+                # account main image (from mobile version)
+                if image:
+                    info['image'] = image[0]
+                elif pp_image:
+                    info['image'] = pp_image[0]
+
+                name = tree.xpath('.//div[@class="op_cont"]//h2[@class="op_header"]')
+                pp_name = tree.xpath('.//div[@class="pp_cont"]//h2[@class="op_header"]')
+                
+                # account name in header
+                if name:
+                    info['name'] = name[0].text
+                elif pp_name:
+                    info['name'] = pp_name[0].text
+            except Exception, e:
+                print e
+        return info
+
+    # parse account page
+    def parse_account_page(self, user_id):
+        url = self.mobile_vk_url + "/id%s?act=info" % user_id
+        info = {}
+        page = self.get_page(url)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                image = tree.xpath('.//img[@class="op_img"]/@src')
+                pp_image = tree.xpath('.//img[@class="pp_img"]/@src')
+
+                # account main image (from mobile version)
+                if image:
+                    info['image'] = image[0]
+                elif pp_image:
+                    info['image'] = pp_image[0]
+
+                name = tree.xpath('.//div[@class="op_cont"]//h2[@class="op_header"]')
+                pp_name = tree.xpath('.//div[@class="pp_cont"]//h2[@class="op_header"]')
+
+                # account name in header
+                if name:
+                    info['name'] = name[0].text
+                elif pp_name:
+                    info['name'] = pp_name[0].text
+
+
+                # main info in profile
+                p_info = tree.xpath('.//dl[@class="pinfo_row"]')
+                if p_info:
+                    last_key = None
+                    for p in p_info:
+                        elems = [k for k in p.iter() if k.text]
+                        for elem in elems:
+                            if elem.tag == 'dt':
+                                info[elem.text] = ""
+                                last_key = elem.text
+                            else:
+                                info[last_key] += elem.text + ","
+
+                for l in tree.xpath('.//a[@class="button wide_button al_back"]'):
+                    l.getparent().remove(l)
+
+                p_info = tree.xpath('.//div[@class="profile_info"]')
+                if p_info:
+                    last_key = None
+                    for p in p_info:
+                        elems = [k for k in p.iter() if k.text]
+                        for elem in elems:
+                            if elem.tag == 'dt':
+                                info[elem.text] = ""
+                                last_key = elem.text
+                            elif elem.tag != 'h4':
+                                info[last_key] += elem.text + ","
+
+                info = {self.clean_key(k) : v.strip(',') for k,v in info.iteritems()}
+
+                # phones
+                phones = []
+                phones_text = tree.xpath('.//a[@class="si_phone"]')
+                if phones_text:
+                    for num in phones_text:
+                        phones.append(re.sub("[^0-9]", "", num.text))
+
+                info['phones'] = phones
+
+            except Exception, e:
+                print e
+        return info
+
+    # parse group page
+    def parse_group_page(self, group_id):
+        url = self.mobile_vk_url + "/club%s" % group_id
+        info = {}
+        page = self.get_page(url)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                image = tree.xpath('.//img[@class="op_img"]/@src')
+                pp_image = tree.xpath('.//img[@class="pp_img"]/@src')
+
+                # account main image (from mobile version)
+                if image:
+                    info['image'] = image[0]
+                elif pp_image:
+                    info['image'] = pp_image[0]
+
+                name = tree.xpath('.//div[@class="op_cont"]//h2[@class="op_header"]')
+                pp_name = tree.xpath('.//div[@class="pp_cont"]//h2[@class="op_header"]')
+
+                # account name in header
+                if name:
+                    info['name'] = name[0].text
+                elif pp_name:
+                    info['name'] = pp_name[0].text
+
+
+                # main info in profile
+                p_info = tree.xpath('.//dl[@class="pinfo_row"]')
+                if p_info:
+                    last_key = None
+                    for p in p_info:
+                        elems = [k for k in p.iter() if k.text]
+                        for elem in elems:
+                            if elem.tag == 'dt':
+                                info[elem.text] = ""
+                                last_key = elem.text
+                            else:
+                                info[last_key] += elem.text + ","
+
+                for l in tree.xpath('.//a[@class="button wide_button al_back"]'):
+                    l.getparent().remove(l)
+
+                p_info = tree.xpath('.//div[@class="profile_info"]')
+                if p_info:
+                    last_key = None
+                    for p in p_info:
+                        elems = [k for k in p.iter() if k.text]
+                        for elem in elems:
+                            if elem.tag == 'dt':
+                                info[elem.text] = ""
+                                last_key = elem.text
+                            elif elem.tag != 'h4':
+                                info[last_key] += elem.text + ","
+
+                pm_item_titles = tree.xpath('.//a[@class="pm_item"]')
+                pm_item_values = tree.xpath('.//a[@class="pm_item"]//em[@class="pm_counter"]')
+                if pm_item_titles and pm_item_values:
+                    for i in range(0, len(pm_item_titles)):
+                        info[pm_item_titles[i].text] = re.sub("[^0-9]", "", pm_item_values[i].text)
+
+                info = {self.clean_key(k) : v.strip(',') for k,v in info.iteritems()}
+
+                # phones
+                phones = []
+                phones_text = tree.xpath('.//a[@class="si_phone"]')
+                if phones_text:
+                    for num in phones_text:
+                        phones.append(re.sub("[^0-9]", "", num.text))
+
+                info['phones'] = phones
+
+            except Exception, e:
+                print e
+        return info
 
     # get group members
     def get_group_members(self, group_id):
-        members = set()
+        # members = set()
+        members = []
         j = 0
         data = {
             'act' : 'box',
@@ -274,8 +570,10 @@ class Pyvk:
         }
         members_data = self.post_request(self.PAGE_URL, data)
         members_count_str = members_data[members_data.find('<span class="fans_count">'):members_data.find('</span></nobr>')]
-        count = members_count_str.replace('<span class="fans_count">', '').replace('<span class="num_delim">', '').replace('</span>', '').replace(' ', '')
-        c = int(count)/60
+        # count = members_count_str.replace('<span class="fans_count">', '').replace('<span class="num_delim">', '').replace('</span>', '').replace(' ', '')
+        # c = int(count)/60
+        count = re.sub("[^0-9]", "", members_count_str)
+        c = int(count)/60 if int(count) < 240 else 4
         while j < c+1:
             if j == 0:
                 members_data = self.post_request(self.PAGE_URL, data)
@@ -283,10 +581,26 @@ class Pyvk:
                     start = members_data.find('div class="fans_rows"') - 1
                     end = members_data.find('a class="fans_more_link"') - 1
                     final = members_data[start:end]
+                    final = unicode(final, 'cp1251')
                     tree = lxml.html.fromstring(final)
-                    user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
-                    for user in user_ids:
-                        members.add(user.replace('/', ''))
+                    # user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
+                    user_ids = tree.xpath('.//div[@class="fans_fanph_wrap"]/@onmouseover')
+                    images = tree.xpath('.//img[@class="fans_fan_img"]/@src')
+                    labels = tree.xpath('.//div[@class="fans_fan_name"]//a')
+                    # for user in user_ids:
+                    #     members.add(user.replace('/', ''))
+                    for i in range(0, len(user_ids)):
+                        user_id = re.sub("[^0-9]", "", user_ids[i])
+                        image = images[i]
+                        if 'camera' in images[i] or 'deactivated' in images[i]:
+                            image = self.vk_url + images[i]
+                        current = {
+                            'id' : user_id,
+                            'link' : self.vk_url + "/id" + str(user_id),
+                            'image' : image,
+                            'label' : labels[i].text,
+                        }
+                        members.append(current)
             else:
                 data['offset'] = j * 60
                 members_data = self.post_request(self.PAGE_URL, data)
@@ -294,17 +608,36 @@ class Pyvk:
                     start = members_data.find('div class="fans_fan_row inl_bl"') - 1
                     end = members_data.find('<!><!int>')
                     final = members_data[start:end]
+                    final = unicode(final, 'cp1251')
                     tree = lxml.html.fromstring(final)
-                    user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
-                    for user in user_ids:
-                        members.add(user.replace('/', ''))
+                    # user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
+                    # for user in user_ids:
+                    #     members.add(user.replace('/', ''))
+                    user_ids = tree.xpath('.//div[@class="fans_fanph_wrap"]/@onmouseover')
+                    images = tree.xpath('.//img[@class="fans_fan_img"]/@src')
+                    labels = tree.xpath('.//div[@class="fans_fan_name"]//a')
+                    # for user in user_ids:
+                    #     members.add(user.replace('/', ''))
+                    for i in range(0, len(user_ids)):
+                        user_id = re.sub("[^0-9]", "", user_ids[i])
+                        image = images[i]
+                        if 'camera' in images[i] or 'deactivated' in images[i]:
+                            image = self.vk_url + images[i]
+                        current = {
+                            'id' : user_id,
+                            'link' : self.vk_url + "/id" + str(user_id),
+                            'image' : image,
+                            'label' : labels[i].text,
+                        }
+                        members.append(current)
             j += 1
-        members = list(members)
+        # members = list(members)
         return members
 
     # simple people search
     def people_search(self, query):
-        peoples = set()
+        # peoples = set()
+        peoples = []
         j = 0
         data = {
             'al' : '1',
@@ -315,38 +648,66 @@ class Pyvk:
             'change' : '1',
         }
         peoples_data = self.post_request(self.SEARCH_URL, data)
-        f = peoples_data.find('"summary":"') + 11
-        t = peoples_data.find('","auto_rows"')
-        peoples_count_str = peoples_data[f:t].strip()
-        count = re.sub("[^0-9]", "", peoples_count_str)
-        c = int(count)/40 if int(count) < 200 else 5
-        while j < c+1:
-            if j == 0:
-                peoples_data = self.post_request(self.SEARCH_URL, data)
-                if peoples_data:
-                    try:
-                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-                        end = peoples_data.find('<div id="show_more">')
-                        final = peoples_data[start:end]
-                        tree = lxml.html.fromstring(final)
-                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-                        for user in user_ids:
-                            peoples.add(re.sub("[^0-9]", "", user))
-                    except Exception, e:
-                        print e
-            else:
-                data['offset'] = j * 40
-                peoples_data = self.post_request(self.SEARCH_URL, data)
-                if peoples_data:
-                    try:
-                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-                        final = peoples_data[start:]
-                        tree = lxml.html.fromstring(final)
-                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-                        for user in user_ids:
-                            peoples.add(re.sub("[^0-9]", "", user))
-                    except Exception, e:
-                        print e
-            j += 1
-        peoples = list(peoples)
+        try:
+            f = peoples_data.find('"summary":"') + 11
+            t = peoples_data.find('","auto_rows"')
+            peoples_count_str = peoples_data[f:t].strip()
+            count = re.sub("[^0-9]", "", peoples_count_str)
+            c = int(count)/40 if int(count) < 200 else 5
+            while j < c+1:
+                if j == 0:
+                    peoples_data = self.post_request(self.SEARCH_URL, data)
+                    if peoples_data:
+                        try:
+                            start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                            end = peoples_data.find('<div id="show_more">')
+                            final = peoples_data[start:end]
+                            final = unicode(final, 'cp1251')
+                            tree = lxml.html.fromstring(final)
+                            user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                            labels = tree.xpath('.//div[@class="labeled name"]//a')
+                            for i in range(0, len(user_ids)):
+                                user_id = re.sub("[^0-9]", "", user_ids[i])
+                                current = {
+                                    'id' : user_id,
+                                    'link' : self.vk_url + "/id" + str(user_id),
+                                    'image' : images[i],
+                                    'label' : labels[i].text,
+                                }
+                                peoples.append(current)
+                                # peoples.add(re.sub("[^0-9]", "", user))
+                        except Exception, e:
+                            print e
+                else:
+                    data['offset'] = j * 40
+                    peoples_data = self.post_request(self.SEARCH_URL, data)
+                    if peoples_data:
+                        try:
+                            start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                            final = peoples_data[start:]
+                            final = unicode(final, 'cp1251')
+                            tree = lxml.html.fromstring(final)
+                            # user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+                            # for user in user_ids:
+                            #     peoples.add(user.replace('/', ''))
+
+                            user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                            # labels = tree.xpath('.//div[@class="labeled name"]//a')
+                            for i in range(0, len(user_ids)):
+                                user_id = re.sub("[^0-9]", "", user_ids[i])
+                                current = {
+                                    'id' : user_id,
+                                    'link' : self.vk_url + "/id" + str(user_id),
+                                    'image' : images[i],
+                                    'label' : labels[i].text
+                                }
+                                peoples.append(current)
+                        except Exception, e:
+                            print e
+                j += 1
+        except Exception, e:
+            print e
+        # peoples = list(peoples)
         return peoples
