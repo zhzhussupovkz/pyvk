@@ -26,6 +26,7 @@ import urllib
 import urllib2
 import cookielib
 import lxml.html
+from lxml import etree
 import urlparse
 import ast
 import sys
@@ -42,6 +43,7 @@ class Pyvk:
     PHOTOS_URL = 'al_photos.php'
     PAGE_URL = 'al_page.php'
     SEARCH_URL = 'al_search.php'
+    WALL_URL = 'al_wall.php'
 
     def __init__(self, login, password):
         self.login = login
@@ -77,10 +79,16 @@ class Pyvk:
             return None
 
     # post request
-    def post_request(self, url, data):
+    def post_request(self, url, data, headers={}, mobile=False):
+        if headers:
+            for k,v in headers.iteritems():
+                self.opener.addheaders.append((k, v))
         data = urllib.urlencode(data)
+        main_url = self.vk_url
+        if mobile == True:
+            main_url = self.mobile_vk_url
         try:
-            resp = self.opener.open(self.vk_url+ '/' + url, data)
+            resp = self.opener.open(main_url + '/' + url, data)
             if resp.getcode() == 200:
                 return resp.read()
         except Exception, e:
@@ -249,10 +257,16 @@ class Pyvk:
         start = audios_data.find('all')
         end = audios_data.find(']]}') + 2
         final = audios_data[start:end].replace('all":', '').strip()
+        final = unicode(final, 'cp1251')
         audios_list = ast.literal_eval(final)
         for a in audios_list:
             mp3 = a[2][:a[2].find('.mp3')+4]
-            audios.append(mp3)
+            current = {
+                'mp3' : mp3,
+                'author' : a[5],
+                'name' : a[6],
+            }
+            audios.append(current)
         return audios
 
     # download user's audios
@@ -325,7 +339,7 @@ class Pyvk:
         end = photo_data.find('}}') + 2
         try:
             final = json.loads(photo_data[start:end].strip())
-            img_link = final.get('temp').get('base') + final.get('temp').get('z_')[0] + '.jpg'
+            img_link = final.get('temp').get('base') + final.get('temp').get('x_')[0] + '.jpg'
             return img_link
         except Exception, e:
             print "Cannot get user's photo"
@@ -347,9 +361,10 @@ class Pyvk:
 
     def clean_key(self, key):
         key = key.strip()
-        cl = [".", "(", ")", ",", "@", " ", ".."]
+        cl = [".", "(", ")", ",", "@", " ", ":"]
         for c in cl:
             key = key.replace(c, "_")
+        key = key.strip('_')
         return key
 
 
@@ -378,6 +393,21 @@ class Pyvk:
                     info['name'] = name[0].text
                 elif pp_name:
                     info['name'] = pp_name[0].text
+
+                # activity
+                online = tree.xpath('.//div[@class="pp_online"]')
+                last_activity = tree.xpath('.//div[@class="pp_last_activity"]')
+                if online:
+                    info['activity'] = online[0].text
+                elif last_activity:
+                    info['activity'] = last_activity[0].text
+                elif online[0].text is None:
+                    info['activity'] = u'Нет данных'
+                elif last_activity[0].text is None:
+                    info['activity'] = u'Нет данных'
+                else:
+                    info['activity'] = u'Нет данных'
+
             except Exception, e:
                 print e
         return info
@@ -437,6 +467,19 @@ class Pyvk:
                 elif pp_name:
                     info['name'] = pp_name[0].text
 
+                # activity
+                online = tree.xpath('.//div[@class="pp_online"]')
+                last_activity = tree.xpath('.//div[@class="pp_last_activity"]')
+                if online:
+                    info['activity'] = online[0].text
+                elif last_activity:
+                    info['activity'] = last_activity[0].text
+                elif online[0].text is None:
+                    info['activity'] = u'Нет данных'
+                elif last_activity[0].text is None:
+                    info['activity'] = u'Нет данных'
+                else:
+                    info['activity'] = u'Нет данных'
 
                 # main info in profile
                 p_info = tree.xpath('.//dl[@class="pinfo_row"]')
@@ -479,6 +522,23 @@ class Pyvk:
 
             except Exception, e:
                 print e
+
+        url = self.mobile_vk_url + "/id%s" % user_id
+        status_page = self.get_page(url)
+        if status_page:
+            try:
+                tree = lxml.html.fromstring(status_page)
+
+                # status
+                status = tree.xpath('.//div[@class="pp_status"]')
+                if status:
+                    info['status'] = status[0].text
+                elif status[0].text is None:
+                    info['status'] = u'Статус не указан'
+                else:
+                    info['status'] = u'Статус не указан'
+            except Exception, e:
+                print e
         return info
 
     # parse group page
@@ -506,6 +566,26 @@ class Pyvk:
                     info['name'] = name[0].text
                 elif pp_name:
                     info['name'] = pp_name[0].text
+
+
+                # status
+                status = tree.xpath('.//div[@class="pp_status"]')
+                if status:
+                    info['status'] = status[0].text
+                elif status[0].text is None:
+                    info['status'] = u'Статус не указан'
+                else:
+                    info['status'] = u'Статус не указан'
+
+
+                # info about city
+                city = tree.xpath('.//div[@class="pp_info"]')
+                if city:
+                    info['city'] = city[0].text
+                elif city[0].text is None:
+                    info['city'] = u'Не указан'
+                else:
+                    info['city'] = u'Не указан'
 
 
                 # main info in profile
@@ -555,6 +635,7 @@ class Pyvk:
 
             except Exception, e:
                 print e
+
         return info
 
     # get group members
@@ -636,6 +717,7 @@ class Pyvk:
 
     # simple people search
     def people_search(self, query):
+        # peoples = set()
         peoples = []
         j = 0
         data = {
@@ -687,9 +769,13 @@ class Pyvk:
                             final = peoples_data[start:]
                             final = unicode(final, 'cp1251')
                             tree = lxml.html.fromstring(final)
+                            # user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+                            # for user in user_ids:
+                            #     peoples.add(user.replace('/', ''))
 
                             user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
                             images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                            # labels = tree.xpath('.//div[@class="labeled name"]//a')
                             for i in range(0, len(user_ids)):
                                 user_id = re.sub("[^0-9]", "", user_ids[i])
                                 current = {
@@ -704,6 +790,7 @@ class Pyvk:
                 j += 1
         except Exception, e:
             print e
+        # peoples = list(peoples)
         return peoples
 
     # simple group search
@@ -780,3 +867,250 @@ class Pyvk:
         except Exception, e:
             print e
         return groups
+
+    # get group's wall
+    def get_group_wall(self, group_id, limit=25, tab=True):
+        publications = []
+        if tab:
+            try:
+                publications_data = self.get_page(self.vk_url + "/club%s" % group_id)
+                if publications_data:
+                    try:
+                        tree = lxml.html.fromstring(publications_data)
+                        links = tree.xpath('.//a[@class="wi_date"]/@href')
+                        post_dates = tree.xpath('.//a[@class="wi_date"]')
+                        for i in range(0, len(links)):
+                            post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                            if post_page:
+                                post_tree = lxml.html.fromstring(post_page)
+                                authors = post_tree.xpath('.//a[@class="pi_author"]')
+                                author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                                images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                                text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                                if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                                    images[0] = self.vk_url + images[0],
+                                current = {
+                                    'author' : authors[0].text_content(),
+                                    'date' : post_dates[i].text,
+                                    'link' : self.vk_url + '/' + links[i].strip('/'),
+                                    'image' : images[0],
+                                    'text' : etree.tostring(text[0], pretty_print=True),
+                                }
+                                publications.append(current)
+                    except Exception, e:
+                        print e
+            except Exception, e:
+                print e
+        else:
+            j = 0
+            c = int(limit)/10 if int(limit) < 50 else 5
+            try:
+            # while j < c+1:
+                while j < 2:
+                    if j == 0:
+                        publications_data = self.get_page(self.vk_url + "/club%s" % group_id)
+                        if publications_data:
+                            try:
+                                tree = lxml.html.fromstring(publications_data)
+                                links = tree.xpath('.//a[@class="wi_date"]/@href')
+                                post_dates = tree.xpath('.//a[@class="wi_date"]')
+                                for i in range(0, len(links)):
+                                    post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                                    if post_page:
+                                        post_tree = lxml.html.fromstring(post_page)
+                                        authors = post_tree.xpath('.//a[@class="pi_author"]')
+                                        author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                                        images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                                        text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                                        if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                                            images[0] = self.vk_url + images[0],
+                                        current = {
+                                            'author' : authors[0].text_content(),
+                                            'date' : post_dates[i].text,
+                                            'link' : self.vk_url + '/' + links[i].strip('/'),
+                                            'image' : images[0],
+                                            'text' : etree.tostring(text[0], pretty_print=True),
+                                        }
+                                        publications.append(current)
+                            except Exception, e:
+                                print e
+                    else:
+                        headers = {
+                            ':host' : 'vk.com',
+                            ':method' : 'POST',
+                            ':path' : '/' + self.WALL_URL,
+                            ':scheme' : 'https',
+                            ':version' : 'HTTP/1.1',
+                            'accept' : '*/*',
+                            'accept-language' : 'en-US,en;q=0.8',
+                            'content-type' : 'application/x-www-form-urlencoded',
+                            'origin' : self.vk_url,
+                            'referer' : self.vk_url + "/club%s" % group_id,
+                            'x-requested-with' : 'XMLHttpRequest',
+                        }
+
+                        data = {
+                            'act' : 'get_wall',
+                            'al' : '1',
+                            'owner_id' : "-%s" % group_id,
+                            'type' : 'own',
+                        }
+                        data['offset'] = j * 10
+                        publications_data = self.post_request(self.WALL_URL, data, headers=headers)
+                        if publications_data:
+                            try:
+                                start = publications_data.find('<div class="post_table">')
+                                end = publications_data.find('<!><!json>[]')
+                                final = publications_data[start:end]
+                                final = unicode(final, 'cp1251')
+                                tree = lxml.html.fromstring(final)
+                                links = tree.xpath('.//span[@class="post_like_link fl_l"]/@id')
+                                authors = tree.xpath('.//div[@class="wall_text"]//a[@class="author"]')
+                                dates = tree.xpath('.//span[@class="rel_date"]')
+                                images = tree.xpath('.//div[@class="post_image"]//a[@class="post_image"]//img/@src')
+                                text = tree.xpath('.//div[@class="wall_text"]')
+
+                                for i in range(0, len(links)):
+                                    # if 'camera' in images[i] or 'deactivated' in images[i] or 'images' in images[i]:
+                                    #     images[i] = self.vk_url + images[i],
+                                    if images[i][0] == '/':
+                                        images[i] = self.vk_url + images[i],
+                                    current = {
+                                        'author' : authors[i].text_content(),
+                                        'date' : dates[i].text,
+                                        'link' : self.vk_url + '/' + links[i].replace('like_link', 'wall').strip('/'),
+                                        'image' : images[i],
+                                        'text' : etree.tostring(text[i], pretty_print=True),
+                                    }
+                                    publications.append(current)
+                            except Exception, e:
+                                print e
+                    j += 1
+            except Exception, e:
+                print e
+        return publications
+
+
+
+    # get account wall
+    def get_account_wall(self, face_id, limit=25, tab=True):
+        publications = []
+        if tab:
+            try:
+                publications_data = self.get_page(self.vk_url + "/id%s" % face_id)
+                if publications_data:
+                    try:
+                        tree = lxml.html.fromstring(publications_data)
+                        links = tree.xpath('.//a[@class="wi_date"]/@href')
+                        post_dates = tree.xpath('.//a[@class="wi_date"]')
+                        for i in range(0, len(links)):
+                            post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                            if post_page:
+                                post_tree = lxml.html.fromstring(post_page)
+                                authors = post_tree.xpath('.//a[@class="pi_author"]')
+                                author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                                images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                                text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                                if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                                    images[0] = self.vk_url + images[0],
+                                current = {
+                                    'author' : authors[0].text_content(),
+                                    'date' : post_dates[i].text,
+                                    'link' : self.vk_url + '/' + links[i].strip('/'),
+                                    'image' : images[0],
+                                    'text' : etree.tostring(text[0], pretty_print=True),
+                                }
+                                publications.append(current)
+                    except Exception, e:
+                        print e
+            except Exception, e:
+                print e
+        else:
+            j = 0
+            c = int(limit)/10 if int(limit) < 50 else 5
+            try:
+                while j < 2:
+                    if j == 0:
+                        publications_data = self.get_page(self.vk_url + "/%s" % face_id)
+                        if publications_data:
+                            try:
+                                tree = lxml.html.fromstring(publications_data)
+                                links = tree.xpath('.//a[@class="wi_date"]/@href')
+                                post_dates = tree.xpath('.//a[@class="wi_date"]')
+                                for i in range(0, len(links)):
+                                    post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                                    if post_page:
+                                        post_tree = lxml.html.fromstring(post_page)
+                                        authors = post_tree.xpath('.//a[@class="pi_author"]')
+                                        author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                                        images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                                        text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                                        if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                                            images[0] = self.vk_url + images[0],
+                                        current = {
+                                            'author' : authors[0].text_content(),
+                                            'date' : post_dates[i].text,
+                                            'link' : self.vk_url + '/' + links[i].strip('/'),
+                                            'image' : images[0],
+                                            'text' : etree.tostring(text[0], pretty_print=True),
+                                        }
+                                        publications.append(current)
+                            except Exception, e:
+                                print e
+                    else:
+                        headers = {
+                            ':host' : 'vk.com',
+                            ':method' : 'POST',
+                            ':path' : '/' + self.WALL_URL,
+                            ':scheme' : 'https',
+                            ':version' : 'HTTP/1.1',
+                            'accept' : '*/*',
+                            'accept-language' : 'en-US,en;q=0.8',
+                            'content-type' : 'application/x-www-form-urlencoded',
+                            'origin' : self.vk_url,
+                            'referer' : self.vk_url + "/club%s" % group_id,
+                            'x-requested-with' : 'XMLHttpRequest',
+                        }
+
+                        data = {
+                            'act' : 'get_wall',
+                            'al' : '1',
+                            'owner_id' : "-%s" % group_id,
+                            'type' : 'own',
+                        }
+                        data['offset'] = j * 10
+                        publications_data = self.post_request(self.WALL_URL, data, headers=headers)
+                        if publications_data:
+                            try:
+                                start = publications_data.find('<div class="post_table">')
+                                end = publications_data.find('<!><!json>[]')
+                                final = publications_data[start:end]
+                                final = unicode(final, 'cp1251')
+                                tree = lxml.html.fromstring(final)
+                                links = tree.xpath('.//span[@class="post_like_link fl_l"]/@id')
+                                authors = tree.xpath('.//div[@class="wall_text"]//a[@class="author"]')
+                                dates = tree.xpath('.//span[@class="rel_date"]')
+                                images = tree.xpath('.//div[@class="post_image"]//a[@class="post_image"]//img/@src')
+                                text = tree.xpath('.//div[@class="wall_text"]')
+
+                                for i in range(0, len(links)):
+                                    if images[i][0] == '/':
+                                        images[i] = self.vk_url + images[i],
+                                    current = {
+                                        'author' : authors[i].text_content(),
+                                        'date' : dates[i].text,
+                                        'link' : self.vk_url + '/' + links[i].replace('like_link', 'wall').strip('/'),
+                                        'image' : images[i],
+                                        'text' : etree.tostring(text[i], pretty_print=True),
+                                    }
+                                    publications.append(current)
+                            except Exception, e:
+                                print e
+                    j += 1
+            except Exception, e:
+                print e
+        return publications
