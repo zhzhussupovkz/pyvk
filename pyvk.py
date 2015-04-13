@@ -41,6 +41,7 @@ class Pyvk:
     CLUBS_URL = 'al_fans.php'
     AUDIOS_URL = 'audio'
     PHOTOS_URL = 'al_photos.php'
+    VIDEOS_URL = 'al_video.php'
     PAGE_URL = 'al_page.php'
     SEARCH_URL = 'al_search.php'
     WALL_URL = 'al_wall.php'
@@ -87,6 +88,7 @@ class Pyvk:
         main_url = self.vk_url
         if mobile == True:
             main_url = self.mobile_vk_url
+
         try:
             resp = self.opener.open(main_url + '/' + url, data)
             if resp.getcode() == 200:
@@ -581,9 +583,10 @@ class Pyvk:
                 # info about city
                 city = tree.xpath('.//div[@class="pp_info"]')
                 if city:
-                    info['city'] = city[0].text
-                elif city[0].text is None:
-                    info['city'] = u'Не указан'
+                    if city[0].text:
+                        info['city'] = city[0].text
+                    else:
+                        info['city'] = u'Не указан'
                 else:
                     info['city'] = u'Не указан'
 
@@ -714,6 +717,37 @@ class Pyvk:
             j += 1
         # members = list(members)
         return members
+
+    # get group videos
+    def get_group_videos(self, group_id):
+        videos = []
+        data = {
+            'act' : 'load_videos_silent',
+            'al' : '1',
+            'offset' : '0',
+            'oid' : "-%s" % group_id,
+            'section' : 'all',
+        }
+        try:
+            videos_data = self.post_request(self.VIDEOS_URL, data)
+            if videos_data:
+                start = videos_data.find('list') + 6
+                end = videos_data.find('"count"') - 1
+                final = videos_data[start:end].strip()
+                final = unicode(final, 'cp1251')
+                videos_list = ast.literal_eval(final)
+                for v in videos_list:
+                    image = v[2]
+                    current = {
+                        'image' : image,
+                        'name' : v[3],
+                        'duration' : v[9],
+                    }
+                    videos.append(current)
+        except Exception, e:
+            print e
+
+        return videos
 
     # simple people search
     def people_search(self, query):
@@ -991,8 +1025,6 @@ class Pyvk:
             except Exception, e:
                 print e
         return publications
-
-
 
     # get account wall
     def get_account_wall(self, face_id, limit=25, tab=True):
