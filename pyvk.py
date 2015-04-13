@@ -267,6 +267,34 @@ class Pyvk:
                 'mp3' : mp3,
                 'author' : a[5],
                 'name' : a[6],
+                'duration' : a[4],
+            }
+            audios.append(current)
+        return audios
+
+    # get group's audios
+    def get_group_audios(self, group_id):
+        audios = []
+        data = {
+            'act' : 'load_audios_silent',
+            'al' : '1',
+            'gid' : "%s" % group_id,
+            'id' : 0,
+            'please_dont_ddos':'1',
+        }
+        audios_data = self.post_request(self.AUDIOS_URL, data)
+        start = audios_data.find('all')
+        end = audios_data.find(']]}') + 2
+        final = audios_data[start:end].replace('all":', '').strip()
+        final = unicode(final, 'cp1251')
+        audios_list = ast.literal_eval(final)
+        for a in audios_list:
+            mp3 = a[2][:a[2].find('.mp3')+4]
+            current = {
+                'mp3' : mp3,
+                'author' : a[5],
+                'duration' : a[4],
+                'name' : a[6],
             }
             audios.append(current)
         return audios
