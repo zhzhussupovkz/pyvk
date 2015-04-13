@@ -718,6 +718,37 @@ class Pyvk:
         # members = list(members)
         return members
 
+    # get account videos
+    def get_account_videos(self, user_id):
+        videos = []
+        data = {
+            'act' : 'load_videos_silent',
+            'al' : '1',
+            'offset' : '0',
+            'oid' : "%s" % user_id,
+            'section' : 'all',
+        }
+        try:
+            videos_data = self.post_request(self.VIDEOS_URL, data)
+            if videos_data:
+                start = videos_data.find('list') + 6
+                end = videos_data.find('"count"') - 1
+                final = videos_data[start:end].strip()
+                final = unicode(final, 'cp1251')
+                videos_list = ast.literal_eval(final)
+                for v in videos_list:
+                    image = v[2]
+                    current = {
+                        'image' : image,
+                        'name' : v[3],
+                        'duration' : v[9],
+                    }
+                    videos.append(current)
+        except Exception, e:
+            print e
+
+        return videos
+
     # get group videos
     def get_group_videos(self, group_id):
         videos = []
