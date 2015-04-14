@@ -54,7 +54,12 @@ class Pyvk:
         self.mobile_vk_url = 'http://m.vk.com'
 
         self.cj = cookielib.CookieJar()
-        self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
+        # self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
+        self.opener = urllib2.build_opener(
+                urllib2.HTTPCookieProcessor(self.cj), 
+                urllib2.HTTPRedirectHandler()
+                # urllib2.ProxyHandler({'https': 'http://localhost:8080'})
+                )
         self.opener.addheaders.append(('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36'))
         self.qd = {}
         self.action_login()
@@ -807,6 +812,21 @@ class Pyvk:
             print e
 
         return videos
+
+    # get account's photos
+    def get_account_all_photos(self, user_id):
+        photos = []
+        try:
+            url = self.mobile_vk_url + "/photos%s" % user_id
+            photos_data = self.get_page(url)
+            if photos_data:
+                tree = lxml.html.fromstring(photos_data)
+                imgs = tree.xpath('.//img[@class="ph_img"]/@src')
+                if imgs:
+                    return imgs
+        except Exception, e:
+            print e
+        return photos
 
     # simple people search
     def people_search(self, query):
