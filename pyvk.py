@@ -828,6 +828,21 @@ class Pyvk:
             print e
         return photos
 
+    # get group's photos
+    def get_group_all_photos(self, group_id):
+        photos = []
+        try:
+            url = self.mobile_vk_url + "/photos-%s" % group_id
+            photos_data = self.get_page(url)
+            if photos_data:
+                tree = lxml.html.fromstring(photos_data)
+                imgs = tree.xpath('.//img[@class="ph_img"]/@src')
+                if imgs:
+                    return imgs
+        except Exception, e:
+            print e
+        return photos
+
     # simple people search
     def people_search(self, query):
         # peoples = set()
