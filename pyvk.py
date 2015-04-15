@@ -310,7 +310,7 @@ class Pyvk:
         print "User: %s. Audios: %s (all), %s (download)" % (user_id, len(audios), n)
         if len(audios) > 0:
             for track in audios[:n]:
-                trackname = track.split('/')[-1]
+                trackname = track.get('mp3').split('/')[-1]
                 filename = './id%s/%s' % (str(user_id), trackname)
                 try:
                     resp = urllib2.urlopen(track)
