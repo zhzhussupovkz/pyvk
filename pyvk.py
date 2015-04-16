@@ -310,7 +310,7 @@ class Pyvk:
         print "User: %s. Audios: %s (all), %s (download)" % (user_id, len(audios), n)
         if len(audios) > 0:
             for track in audios[:n]:
-                trackname = track.get('mp3').split('/')[-1]
+                trackname = track.get('author').replace(' ', '_') + '-' + track.get('name').replace(' ', '_') + '.mp3'
                 filename = './id%s/%s' % (str(user_id), trackname)
                 try:
                     resp = urllib2.urlopen(track)
@@ -318,7 +318,7 @@ class Pyvk:
                         if not os.path.exists(os.path.dirname(filename)):
                             os.makedirs(os.path.dirname(filename))
                         size = resp.info().getheaders('Content-Length')[0]
-                        print "Starting downloading track: %s. Size: %s bytes" % (track, size)
+                        print "Starting downloading track: %s. Size: %s bytes" % (trackname, size)
                         f = open(filename, "wb")
                         downloaded = 0
                         block = 2048
