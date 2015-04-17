@@ -751,6 +751,36 @@ class Pyvk:
         # members = list(members)
         return members
 
+    # get group contacts
+    def get_group_contacts(self, group_id):
+        contacts = []
+        data = {
+            'act' : 'a_get_contacts',
+            'al' : '1',
+            'oid' : "-%s" % group_id,
+        }
+        contacts_data = self.post_request(self.PAGE_URL, data)
+        if contacts_data:
+            try:
+                start = contacts_data.find('<div id="public_contacts_list"')
+                end = contacts_data.find('<!>box.')
+                final = contacts_data[start:end]
+                final = unicode(final, 'cp1251')
+                tree = lxml.html.fromstring(final)
+                images = tree.xpath('.//div[@class="image"]//a//img/@src')
+                names = tree.xpath('.//div[@class="info fl_l"]//div[@class="name"]//a')
+                actions = tree.xpath('.//div[@class="actions fl_r"]//a/@href')
+                for i in range(0, len(images)):
+                    current = {
+                        'image' : images[i],
+                        'name' : names[i].text,
+                        'id' : re.sub("[^0-9]", "", actions[i]),
+                    }
+                    contacts.append(current)
+            except Exception, e:
+                print e
+        return contacts
+
     # get account videos
     def get_account_videos(self, user_id):
         videos = []
