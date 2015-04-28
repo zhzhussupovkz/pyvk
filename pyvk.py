@@ -352,7 +352,7 @@ class Pyvk:
         end = photo_data.find('}}') + 2
         try:
             final = json.loads(photo_data[start:end].strip())
-            img_link = final.get('temp').get('base') + final.get('temp').get('z_')[0] + '.jpg'
+            img_link = final.get('temp').get('base') + final.get('temp').get('x_')[0] + '.jpg'
             resp = urllib2.urlopen(img_link)
             filename = './id%s.jpg' % user_id
             f = open(filename, "wb")
