@@ -265,16 +265,19 @@ class Pyvk:
         end = audios_data.find(']]}') + 2
         final = audios_data[start:end].replace('all":', '').strip()
         final = unicode(final, 'cp1251')
-        audios_list = ast.literal_eval(final)
-        for a in audios_list:
-            mp3 = a[2][:a[2].find('.mp3')+4]
-            current = {
-                'mp3' : mp3,
-                'author' : a[5],
-                'name' : a[6],
-                'duration' : a[4],
-            }
-            audios.append(current)
+        try:
+            audios_list = ast.literal_eval(final)
+            for a in audios_list:
+                mp3 = a[2][:a[2].find('.mp3')+4]
+                current = {
+                    'mp3' : mp3,
+                    'author' : a[5],
+                    'name' : a[6],
+                    'duration' : a[4],
+                }
+                audios.append(current)
+        except Exception, e:
+            print e
         return audios
 
     # get group's audios
@@ -292,16 +295,19 @@ class Pyvk:
         end = audios_data.find(']]}') + 2
         final = audios_data[start:end].replace('all":', '').strip()
         final = unicode(final, 'cp1251')
-        audios_list = ast.literal_eval(final)
-        for a in audios_list:
-            mp3 = a[2][:a[2].find('.mp3')+4]
-            current = {
-                'mp3' : mp3,
-                'author' : a[5],
-                'duration' : a[4],
-                'name' : a[6],
-            }
-            audios.append(current)
+        try:
+            audios_list = ast.literal_eval(final)
+            for a in audios_list:
+                mp3 = a[2][:a[2].find('.mp3')+4]
+                current = {
+                    'mp3' : mp3,
+                    'author' : a[5],
+                    'duration' : a[4],
+                    'name' : a[6],
+                }
+                audios.append(current)
+        except Exception, e:
+            print e
         return audios
 
     # download user's audios
@@ -904,8 +910,7 @@ class Pyvk:
         return photos
 
     # simple people search
-    def people_search(self, query):
-        # peoples = set()
+    def people_search(self, query, offset = None):
         peoples = []
         j = 0
         data = {
@@ -922,63 +927,109 @@ class Pyvk:
             t = peoples_data.find('","auto_rows"')
             peoples_count_str = peoples_data[f:t].strip()
             count = re.sub("[^0-9]", "", peoples_count_str)
-            c = int(count)/40 if int(count) < 200 else 5
-            while j < c+1:
-                if j == 0:
-                    peoples_data = self.post_request(self.SEARCH_URL, data)
-                    if peoples_data:
-                        try:
-                            start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-                            end = peoples_data.find('<div id="show_more">')
-                            final = peoples_data[start:end]
-                            final = unicode(final, 'cp1251')
-                            tree = lxml.html.fromstring(final)
-                            user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
-                            labels = tree.xpath('.//div[@class="labeled name"]//a')
-                            for i in range(0, len(user_ids)):
-                                user_id = re.sub("[^0-9]", "", user_ids[i])
-                                current = {
-                                    'id' : user_id,
-                                    'link' : self.vk_url + "/id" + str(user_id),
-                                    'image' : images[i],
-                                    'label' : labels[i].text,
-                                }
-                                peoples.append(current)
-                                # peoples.add(re.sub("[^0-9]", "", user))
-                        except Exception, e:
-                            print e
-                else:
-                    data['offset'] = j * 40
-                    peoples_data = self.post_request(self.SEARCH_URL, data)
-                    if peoples_data:
-                        try:
-                            start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-                            final = peoples_data[start:]
-                            final = unicode(final, 'cp1251')
-                            tree = lxml.html.fromstring(final)
-                            # user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
-                            # for user in user_ids:
-                            #     peoples.add(user.replace('/', ''))
+            if offset:
+                data['offset'] = int(offset)
+                peoples_data = self.post_request(self.SEARCH_URL, data)
+                if peoples_data:
+                    try:
+                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                        final = peoples_data[start:]
+                        final = unicode(final, 'cp1251')
+                        tree = lxml.html.fromstring(final)
+                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+                        images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                        labels = tree.xpath('.//div[@class="labeled name"]//a')
+                        for i in range(0, len(user_ids)):
+                            user_id = re.sub("[^0-9]", "", user_ids[i])
+                            current = {
+                                'id' : user_id,
+                                'link' : self.vk_url + "/id" + str(user_id),
+                                'image' : images[i],
+                                'label' : labels[i].text
+                            }
+                            peoples.append(current)
+                    except Exception, e:
+                        print e
+            else:
+                peoples_data = self.post_request(self.SEARCH_URL, data)
+                if peoples_data:
+                    try:
+                        start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+                        end = peoples_data.find('<div id="show_more">')
+                        final = peoples_data[start:end]
+                        final = unicode(final, 'cp1251')
+                        tree = lxml.html.fromstring(final)
+                        user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+                        images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                        labels = tree.xpath('.//div[@class="labeled name"]//a')
+                        for i in range(0, len(user_ids)):
+                            user_id = re.sub("[^0-9]", "", user_ids[i])
+                            current = {
+                                'id' : user_id,
+                                'link' : self.vk_url + "/id" + str(user_id),
+                                'image' : images[i],
+                                'label' : labels[i].text,
+                            }
+                            peoples.append(current)
+                    except Exception, e:
+                        print e
 
-                            user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
-                            # labels = tree.xpath('.//div[@class="labeled name"]//a')
-                            for i in range(0, len(user_ids)):
-                                user_id = re.sub("[^0-9]", "", user_ids[i])
-                                current = {
-                                    'id' : user_id,
-                                    'link' : self.vk_url + "/id" + str(user_id),
-                                    'image' : images[i],
-                                    'label' : labels[i].text
-                                }
-                                peoples.append(current)
-                        except Exception, e:
-                            print e
-                j += 1
+            # c = int(count)/40 if int(count) < 200 else 5
+            # while j < c+1:
+            #     if j == 0:
+            #         peoples_data = self.post_request(self.SEARCH_URL, data)
+            #         if peoples_data:
+            #             try:
+            #                 start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+            #                 end = peoples_data.find('<div id="show_more">')
+            #                 final = peoples_data[start:end]
+            #                 final = unicode(final, 'cp1251')
+            #                 tree = lxml.html.fromstring(final)
+            #                 user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+            #                 images = tree.xpath('.//img[@class="search_item_img"]/@src')
+            #                 labels = tree.xpath('.//div[@class="labeled name"]//a')
+            #                 for i in range(0, len(user_ids)):
+            #                     user_id = re.sub("[^0-9]", "", user_ids[i])
+            #                     current = {
+            #                         'id' : user_id,
+            #                         'link' : self.vk_url + "/id" + str(user_id),
+            #                         'image' : images[i],
+            #                         'label' : labels[i].text,
+            #                     }
+            #                     peoples.append(current)
+            #                     # peoples.add(re.sub("[^0-9]", "", user))
+            #             except Exception, e:
+            #                 print e
+            #     else:
+            #         data['offset'] = j * 40
+            #         peoples_data = self.post_request(self.SEARCH_URL, data)
+            #         if peoples_data:
+            #             try:
+            #                 start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
+            #                 final = peoples_data[start:]
+            #                 final = unicode(final, 'cp1251')
+            #                 tree = lxml.html.fromstring(final)
+            #                 # user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
+            #                 # for user in user_ids:
+            #                 #     peoples.add(user.replace('/', ''))
+
+            #                 user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
+            #                 images = tree.xpath('.//img[@class="search_item_img"]/@src')
+            #                 # labels = tree.xpath('.//div[@class="labeled name"]//a')
+            #                 for i in range(0, len(user_ids)):
+            #                     user_id = re.sub("[^0-9]", "", user_ids[i])
+            #                     current = {
+            #                         'id' : user_id,
+            #                         'link' : self.vk_url + "/id" + str(user_id),
+            #                         'image' : images[i],
+            #                         'label' : labels[i].text
+            #                     }
+            #                     peoples.append(current)
+            #             except Exception, e:
+            #                 print e
+            #     j += 1
         except Exception, e:
             print e
-        # peoples = list(peoples)
         return peoples
 
     # simple group search
