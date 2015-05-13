@@ -45,6 +45,8 @@ class Pyvk:
     PAGE_URL = 'al_page.php'
     SEARCH_URL = 'al_search.php'
     WALL_URL = 'al_wall.php'
+    API_URL = 'https://api.vk.com/method'
+    API_VERSION = '5.31'
 
     def __init__(self, login, password):
         self.login = login
@@ -1351,3 +1353,15 @@ class Pyvk:
             except Exception, e:
                 print e
         return publications
+
+    def api_get(self, method = 'wall.get', params = {}, access_token = None):
+        query = urllib.urlencode(params)
+        url = self.API_URL + "/%s?%s" % (method, query)
+        return self.get_page(url)
+
+    def get_group_wall_by_api(self, group_id):
+        params = {
+            'owner_id' : "-%s" % group_id,
+            'v' : self.API_VERSION,
+        }
+        return self.api_get(params=params)
