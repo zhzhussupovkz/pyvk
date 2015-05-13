@@ -1357,7 +1357,17 @@ class Pyvk:
     def api_get(self, method = 'wall.get', params = {}, access_token = None):
         query = urllib.urlencode(params)
         url = self.API_URL + "/%s?%s" % (method, query)
-        return self.get_page(url)
+        page = self.get_page(url)
+        if page:
+            return json.loads(page)
+        return None
+
+    def get_account_wall_by_api(self, face_id):
+        params = {
+            'owner_id' : "%s" % face_id,
+            'v' : self.API_VERSION,
+        }
+        return self.api_get(params=params)
 
     def get_group_wall_by_api(self, group_id):
         params = {
