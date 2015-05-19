@@ -57,9 +57,14 @@ class Pyvk:
 
         self.cj = cookielib.CookieJar()
         # self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
+
+        # myProxy = urllib2.ProxyHandler({"https" : "46.39.233.46:8080"})
+        # myProxy = urllib2.ProxyHandler({"http" : "46.48.188.96:3128"})
+
         self.opener = urllib2.build_opener(
                 urllib2.HTTPCookieProcessor(self.cj), 
                 urllib2.HTTPRedirectHandler()
+                # myProxy
                 # urllib2.ProxyHandler({'https': 'http://localhost:8080'})
                 )
         self.opener.addheaders.append(('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36'))
@@ -684,7 +689,6 @@ class Pyvk:
 
     # get group members
     def get_group_members(self, group_id):
-        # members = set()
         members = []
         j = 0
         data = {
@@ -695,8 +699,6 @@ class Pyvk:
         }
         members_data = self.post_request(self.PAGE_URL, data)
         members_count_str = members_data[members_data.find('<span class="fans_count">'):members_data.find('</span></nobr>')]
-        # count = members_count_str.replace('<span class="fans_count">', '').replace('<span class="num_delim">', '').replace('</span>', '').replace(' ', '')
-        # c = int(count)/60
         count = re.sub("[^0-9]", "", members_count_str)
         c = int(count)/60 if int(count) < 240 else 4
         while j < c+1:
@@ -708,12 +710,9 @@ class Pyvk:
                     final = members_data[start:end]
                     final = unicode(final, 'cp1251')
                     tree = lxml.html.fromstring(final)
-                    # user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
                     user_ids = tree.xpath('.//div[@class="fans_fanph_wrap"]/@onmouseover')
                     images = tree.xpath('.//img[@class="fans_fan_img"]/@src')
                     labels = tree.xpath('.//div[@class="fans_fan_name"]//a')
-                    # for user in user_ids:
-                    #     members.add(user.replace('/', ''))
                     for i in range(0, len(user_ids)):
                         user_id = re.sub("[^0-9]", "", user_ids[i])
                         image = images[i]
@@ -735,14 +734,9 @@ class Pyvk:
                     final = members_data[start:end]
                     final = unicode(final, 'cp1251')
                     tree = lxml.html.fromstring(final)
-                    # user_ids = tree.xpath('.//a[@class="fans_fan_ph"]/@href')
-                    # for user in user_ids:
-                    #     members.add(user.replace('/', ''))
                     user_ids = tree.xpath('.//div[@class="fans_fanph_wrap"]/@onmouseover')
                     images = tree.xpath('.//img[@class="fans_fan_img"]/@src')
                     labels = tree.xpath('.//div[@class="fans_fan_name"]//a')
-                    # for user in user_ids:
-                    #     members.add(user.replace('/', ''))
                     for i in range(0, len(user_ids)):
                         user_id = re.sub("[^0-9]", "", user_ids[i])
                         image = images[i]
@@ -756,7 +750,6 @@ class Pyvk:
                         }
                         members.append(current)
             j += 1
-        # members = list(members)
         return members
 
     # get group contacts
@@ -975,67 +968,12 @@ class Pyvk:
                             peoples.append(current)
                     except Exception, e:
                         print e
-
-            # c = int(count)/40 if int(count) < 200 else 5
-            # while j < c+1:
-            #     if j == 0:
-            #         peoples_data = self.post_request(self.SEARCH_URL, data)
-            #         if peoples_data:
-            #             try:
-            #                 start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-            #                 end = peoples_data.find('<div id="show_more">')
-            #                 final = peoples_data[start:end]
-            #                 final = unicode(final, 'cp1251')
-            #                 tree = lxml.html.fromstring(final)
-            #                 user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-            #                 images = tree.xpath('.//img[@class="search_item_img"]/@src')
-            #                 labels = tree.xpath('.//div[@class="labeled name"]//a')
-            #                 for i in range(0, len(user_ids)):
-            #                     user_id = re.sub("[^0-9]", "", user_ids[i])
-            #                     current = {
-            #                         'id' : user_id,
-            #                         'link' : self.vk_url + "/id" + str(user_id),
-            #                         'image' : images[i],
-            #                         'label' : labels[i].text,
-            #                     }
-            #                     peoples.append(current)
-            #                     # peoples.add(re.sub("[^0-9]", "", user))
-            #             except Exception, e:
-            #                 print e
-            #     else:
-            #         data['offset'] = j * 40
-            #         peoples_data = self.post_request(self.SEARCH_URL, data)
-            #         if peoples_data:
-            #             try:
-            #                 start = peoples_data.find('<div class="people_row three_col_row clear_fix">')
-            #                 final = peoples_data[start:]
-            #                 final = unicode(final, 'cp1251')
-            #                 tree = lxml.html.fromstring(final)
-            #                 # user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]//a/@href')
-            #                 # for user in user_ids:
-            #                 #     peoples.add(user.replace('/', ''))
-
-            #                 user_ids = tree.xpath('.//div[@class="img search_bigph_wrap fl_l"]/@onmouseover')
-            #                 images = tree.xpath('.//img[@class="search_item_img"]/@src')
-            #                 # labels = tree.xpath('.//div[@class="labeled name"]//a')
-            #                 for i in range(0, len(user_ids)):
-            #                     user_id = re.sub("[^0-9]", "", user_ids[i])
-            #                     current = {
-            #                         'id' : user_id,
-            #                         'link' : self.vk_url + "/id" + str(user_id),
-            #                         'image' : images[i],
-            #                         'label' : labels[i].text
-            #                     }
-            #                     peoples.append(current)
-            #             except Exception, e:
-            #                 print e
-            #     j += 1
         except Exception, e:
             print e
         return peoples
 
     # simple group search
-    def group_search(self, query):
+    def group_search(self, query, offset = None):
         groups = []
         j = 0
         data = {
@@ -1052,61 +990,122 @@ class Pyvk:
             groups_count_str = groups_data[f:t].strip()
             count = re.sub("[^0-9]", "", groups_count_str)
             c = int(count)/20 if int(count) < 100 else 5
-            while j < c+1:
-                if j == 0:
-                    groups_data = self.post_request(self.SEARCH_URL, data)
-                    if groups_data:
-                        try:
-                            start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
-                            end = groups_data.find('<div id="show_more">')
-                            final = groups_data[start:end]
-                            final = unicode(final, 'cp1251')
-                            tree = lxml.html.fromstring(final)
-                            group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
-                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
-                            labels = tree.xpath('.//div[@class="labeled title"]//a')
-                            for i in range(0, len(group_ids)):
-                                group_id = re.sub("[^0-9]", "", group_ids[i])
-                                if 'community' in images[i]:
-                                    images[i] = self.vk_url + images[i]
-                                current = {
-                                    'id' : group_id,
-                                    'link' : self.vk_url + "/club" + str(group_id),
-                                    'image' : images[i],
-                                    'label' : labels[i].text_content(),
-                                }
-                                groups.append(current)
-                        except Exception, e:
-                            print e
-                else:
-                    data['offset'] = j * 20
-                    groups_data = self.post_request(self.SEARCH_URL, data)
-                    if groups_data:
-                        try:
-                            start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
-                            end = groups_data.find('<div id="show_more">')
-                            final = groups_data[start:end]
-                            final = unicode(final, 'cp1251')
-                            tree = lxml.html.fromstring(final)
-                            group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
-                            images = tree.xpath('.//img[@class="search_item_img"]/@src')
-                            labels = tree.xpath('.//div[@class="labeled title"]//a')
-                            for i in range(0, len(group_ids)):
-                                group_id = re.sub("[^0-9]", "", group_ids[i])
-                                if 'community' in images[i]:
-                                    images[i] = self.vk_url + images[i]
-                                current = {
-                                    'id' : group_id,
-                                    'link' : self.vk_url + "/club" + str(group_id),
-                                    'image' : images[i],
-                                    'label' : labels[i].text_content(),
-                                }
-                                groups.append(current)
-                        except Exception, e:
-                            print e
-                j += 1
+            if offset:
+                data['offset'] = int(offset)
+                groups_data = self.post_request(self.SEARCH_URL, data)
+                if groups_data:
+                    try:
+                        start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
+                        end = groups_data.find('<div id="show_more">')
+                        final = groups_data[start:end]
+                        final = unicode(final, 'cp1251')
+                        tree = lxml.html.fromstring(final)
+                        group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
+                        images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                        labels = tree.xpath('.//div[@class="labeled title"]//a')
+                        for i in range(0, len(group_ids)):
+                            group_id = re.sub("[^0-9]", "", group_ids[i])
+                            if 'community' in images[i]:
+                                images[i] = self.vk_url + images[i]
+                            current = {
+                                'id' : group_id,
+                                'link' : self.vk_url + "/club" + str(group_id),
+                                'image' : images[i],
+                                'label' : labels[i].text_content(),
+                            }
+                            groups.append(current)
+                    except Exception, e:
+                        print e
+            else:
+                groups_data = self.post_request(self.SEARCH_URL, data)
+                if groups_data:
+                    try:
+                        start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
+                        end = groups_data.find('<div id="show_more">')
+                        final = groups_data[start:end]
+                        final = unicode(final, 'cp1251')
+                        tree = lxml.html.fromstring(final)
+                        group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
+                        images = tree.xpath('.//img[@class="search_item_img"]/@src')
+                        labels = tree.xpath('.//div[@class="labeled title"]//a')
+                        for i in range(0, len(group_ids)):
+                            group_id = re.sub("[^0-9]", "", group_ids[i])
+                            if 'community' in images[i]:
+                                images[i] = self.vk_url + images[i]
+                            current = {
+                                'id' : group_id,
+                                'link' : self.vk_url + "/club" + str(group_id),
+                                'image' : images[i],
+                                'label' : labels[i].text_content(),
+                            }
+                            groups.append(current)
+                    except Exception, e:
+                        print e
         except Exception, e:
             print e
+
+
+        # try:
+        #     f = groups_data.find('"summary":"') + 11
+        #     t = groups_data.find('","auto_rows"')
+        #     groups_count_str = groups_data[f:t].strip()
+        #     count = re.sub("[^0-9]", "", groups_count_str)
+        #     c = int(count)/20 if int(count) < 100 else 5
+        #     while j < c+1:
+        #         if j == 0:
+        #             groups_data = self.post_request(self.SEARCH_URL, data)
+        #             if groups_data:
+        #                 try:
+        #                     start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
+        #                     end = groups_data.find('<div id="show_more">')
+        #                     final = groups_data[start:end]
+        #                     final = unicode(final, 'cp1251')
+        #                     tree = lxml.html.fromstring(final)
+        #                     group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
+        #                     images = tree.xpath('.//img[@class="search_item_img"]/@src')
+        #                     labels = tree.xpath('.//div[@class="labeled title"]//a')
+        #                     for i in range(0, len(group_ids)):
+        #                         group_id = re.sub("[^0-9]", "", group_ids[i])
+        #                         if 'community' in images[i]:
+        #                             images[i] = self.vk_url + images[i]
+        #                         current = {
+        #                             'id' : group_id,
+        #                             'link' : self.vk_url + "/club" + str(group_id),
+        #                             'image' : images[i],
+        #                             'label' : labels[i].text_content(),
+        #                         }
+        #                         groups.append(current)
+        #                 except Exception, e:
+        #                     print e
+        #         else:
+        #             data['offset'] = j * 20
+        #             groups_data = self.post_request(self.SEARCH_URL, data)
+        #             if groups_data:
+        #                 try:
+        #                     start = groups_data.find('<div class="groups_row three_col_row clear_fix">')
+        #                     end = groups_data.find('<div id="show_more">')
+        #                     final = groups_data[start:end]
+        #                     final = unicode(final, 'cp1251')
+        #                     tree = lxml.html.fromstring(final)
+        #                     group_ids = tree.xpath('.//button[@class="flat_button secondary search_sub"]/@id')
+        #                     images = tree.xpath('.//img[@class="search_item_img"]/@src')
+        #                     labels = tree.xpath('.//div[@class="labeled title"]//a')
+        #                     for i in range(0, len(group_ids)):
+        #                         group_id = re.sub("[^0-9]", "", group_ids[i])
+        #                         if 'community' in images[i]:
+        #                             images[i] = self.vk_url + images[i]
+        #                         current = {
+        #                             'id' : group_id,
+        #                             'link' : self.vk_url + "/club" + str(group_id),
+        #                             'image' : images[i],
+        #                             'label' : labels[i].text_content(),
+        #                         }
+        #                         groups.append(current)
+        #                 except Exception, e:
+        #                     print e
+        #         j += 1
+        # except Exception, e:
+        #     print e
         return groups
 
     # get group's wall
