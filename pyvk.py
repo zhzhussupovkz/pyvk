@@ -1479,6 +1479,46 @@ class Pyvk:
                 print e
         return publications
 
+    def account_wall_post_message(self, message, face_id):
+        try:
+            current_cookie = ''
+            for c in self.cj:
+                current_cookie += '%s=%s; ' % (c.name, c.value)
+
+            current_cookie += 'remixdt=10800; remixshow_fvbar=1; remixvkcom_done=1; audio_vol=100; remixflash=17.0.0; remixscreen_depth=24; remixseenads=-1'
+
+            headers = {
+                'Accept' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language' : 'en-US,en;q=0.5',
+                'Cache-Control' : 'no-cache',
+                'Connection' : 'keep-alive',
+                'Content-Type' : 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Host' : 'm.vk.com',
+                'Pragma' : 'no-cache',
+                'Referer' : 'http://m.vk.com/id%s' % face_id,
+                'X-Requested-With' : 'XMLHttpRequest',
+                'Cookie' : current_cookie,
+            }
+
+            url = self.vk_url + "/id%s" % face_id
+            info = {}
+            page = self.get_page(url)
+            if page:
+                tree = lxml.html.fromstring(page)
+                action = tree.xpath('.//form[@action]')[0].get('action')
+                data = {
+                    '_ref' : "id%s" % face_id,
+                    'message' : message,
+                }
+                enc_data = urllib.urlencode(data)
+                headers['Content-Length'] = len(enc_data)
+                result = self.post_request(action[1:], data, headers=headers, mobile=True)
+                return result
+            else:
+                return None
+        except Exception, e:
+            print e
+
     def api_get(self, method = 'wall.get', params = {}, access_token = None):
         query = urllib.urlencode(params)
         url = self.API_URL + "/%s?%s" % (method, query)
