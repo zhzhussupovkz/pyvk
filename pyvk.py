@@ -34,6 +34,9 @@ import os
 import json
 import re
 
+import random
+import string
+
 class Pyvk:
 
     FRIENDS_URL = 'al_friends.php'
@@ -82,6 +85,7 @@ class Pyvk:
                 o = urlparse.urlparse(action)
                 qd = urlparse.parse_qs(o.query)
                 self.qd['ip_h'] = qd.get('ip_h')[0]
+                self.qd['lg_h'] = qd.get('lg_h')[0]
                 self.qd['_origin'] = qd.get('_origin')[0]
                 self.qd['act'] = qd.get('act')[0]
                 self.qd['utf8'] = qd.get('utf8')[0]
@@ -116,6 +120,7 @@ class Pyvk:
             'to' : '',
             '_origin' : qd.get('_origin'),
             'ip_h' : qd.get('ip_h'),
+            'lg_h' : qd.get('lg_h'),
             'utf8' : qd.get('utf8'),
             'email' : self.login,
             'pass' : self.password,
@@ -200,7 +205,29 @@ class Pyvk:
             'gid' : '0',
             'id' : user_id,
         }
-        friends_data = self.post_request(self.FRIENDS_URL, data)
+
+        current_cookie = ''
+        for c in self.cj:
+            current_cookie += '%s=%s; ' % (c.name, c.value)
+
+        current_cookie += 'remixdt=10800; remixshow_fvbar=1; remixvkcom_done=1; audio_vol=100; remixflash=17.0.0; remixscreen_depth=24; remixseenads=-1'
+
+        # print current_cookie
+
+        headers = {
+            'Accept' : '*/*',
+            'Accept-Language' : 'en-US,en;q=0.8',
+            'Connection' : 'keep-alive',
+            'Content-Type' : 'application/x-www-form-urlencoded',
+            'Cookie' : current_cookie,
+            'Host' : 'vk.com',
+            'Origin' : 'http://vk.com',
+            'Referer' : 'http://vk.com/friends?id=%s&section=all' % user_id,
+            'X-Requested-With' : 'XMLHttpRequest',
+        }
+
+        friends_data = self.post_request(self.FRIENDS_URL, data, headers)
+
         start = friends_data.find('all')
         end = friends_data.find(']]}') + 2
         final = friends_data[start:end].replace('all":', '').strip()
@@ -1272,31 +1299,80 @@ class Pyvk:
             try:
                 while j < 2:
                     if j == 0:
-                        publications_data = self.get_page(self.vk_url + "/%s" % face_id)
+                        # publications_data = self.get_page(self.vk_url + "/%s" % face_id)
+                        # if publications_data:
+                        #     try:
+                        #         tree = lxml.html.fromstring(publications_data)
+                        #         links = tree.xpath('.//a[@class="wi_date"]/@href')
+                        #         post_dates = tree.xpath('.//a[@class="wi_date"]')
+                        #         for i in range(0, len(links)):
+                        #             post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                        #             if post_page:
+                        #                 post_tree = lxml.html.fromstring(post_page)
+                        #                 authors = post_tree.xpath('.//a[@class="pi_author"]')
+                        #                 author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                        #                 images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                        #                 text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                        #                 if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                        #                     images[0] = self.vk_url + images[0],
+                        #                 current = {
+                        #                     'author' : authors[0].text_content(),
+                        #                     'date' : post_dates[i].text,
+                        #                     'link' : self.vk_url + '/' + links[i].strip('/'),
+                        #                     'image' : images[0],
+                        #                     'text' : etree.tostring(text[0], pretty_print=True),
+                        #                 }
+                        #                 publications.append(current)
+                        #     except Exception, e:
+                        #         print e
+
+                        headers = {
+                            ':host' : 'vk.com',
+                            ':method' : 'POST',
+                            ':path' : '/' + self.WALL_URL,
+                            ':scheme' : 'https',
+                            ':version' : 'HTTP/1.1',
+                            'accept' : '*/*',
+                            'accept-language' : 'en-US,en;q=0.8',
+                            'content-type' : 'application/x-www-form-urlencoded',
+                            'origin' : self.vk_url,
+                            'referer' : self.vk_url + "/id%s" % face_id,
+                            'x-requested-with' : 'XMLHttpRequest',
+                        }
+
+                        data = {
+                            'act' : 'get_wall',
+                            'al' : '1',
+                            'owner_id' : "%s" % group_id,
+                            'type' : 'own',
+                        }
+                        data['offset'] = 0 #j * 10
+                        publications_data = self.post_request(self.WALL_URL, data, headers=headers)
                         if publications_data:
                             try:
-                                tree = lxml.html.fromstring(publications_data)
-                                links = tree.xpath('.//a[@class="wi_date"]/@href')
-                                post_dates = tree.xpath('.//a[@class="wi_date"]')
-                                for i in range(0, len(links)):
-                                    post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
-                                    if post_page:
-                                        post_tree = lxml.html.fromstring(post_page)
-                                        authors = post_tree.xpath('.//a[@class="pi_author"]')
-                                        author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
-                                        images = post_tree.xpath('.//img[@class="wi_img"]/@src')
-                                        text = post_tree.xpath('.//div[@class="pi_text"]')
+                                start = publications_data.find('<div class="post_table">')
+                                end = publications_data.find('<!><!json>[]')
+                                final = publications_data[start:end]
+                                final = unicode(final, 'cp1251')
+                                tree = lxml.html.fromstring(final)
+                                links = tree.xpath('.//span[@class="post_like_link fl_l"]/@id')
+                                authors = tree.xpath('.//div[@class="wall_text"]//a[@class="author"]')
+                                dates = tree.xpath('.//span[@class="rel_date"]')
+                                images = tree.xpath('.//div[@class="post_image"]//a[@class="post_image"]//img/@src')
+                                text = tree.xpath('.//div[@class="wall_text"]')
 
-                                        if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
-                                            images[0] = self.vk_url + images[0],
-                                        current = {
-                                            'author' : authors[0].text_content(),
-                                            'date' : post_dates[i].text,
-                                            'link' : self.vk_url + '/' + links[i].strip('/'),
-                                            'image' : images[0],
-                                            'text' : etree.tostring(text[0], pretty_print=True),
-                                        }
-                                        publications.append(current)
+                                for i in range(0, len(links)):
+                                    if images[i][0] == '/':
+                                        images[i] = self.vk_url + images[i],
+                                    current = {
+                                        'author' : authors[i].text_content(),
+                                        'date' : dates[i].text,
+                                        'link' : self.vk_url + '/' + links[i].replace('like_link', 'wall').strip('/'),
+                                        'image' : images[i],
+                                        'text' : etree.tostring(text[i], pretty_print=True),
+                                    }
+                                    publications.append(current)
                             except Exception, e:
                                 print e
                     else:
@@ -1310,14 +1386,14 @@ class Pyvk:
                             'accept-language' : 'en-US,en;q=0.8',
                             'content-type' : 'application/x-www-form-urlencoded',
                             'origin' : self.vk_url,
-                            'referer' : self.vk_url + "/club%s" % group_id,
+                            'referer' : self.vk_url + "/id%s" % face_id,
                             'x-requested-with' : 'XMLHttpRequest',
                         }
 
                         data = {
                             'act' : 'get_wall',
                             'al' : '1',
-                            'owner_id' : "-%s" % group_id,
+                            'owner_id' : "%s" % group_id,
                             'type' : 'own',
                         }
                         data['offset'] = j * 10
@@ -1367,6 +1443,14 @@ class Pyvk:
             'v' : self.API_VERSION,
         }
         return self.api_get(params=params)
+
+    def get_account_friends_by_api(self, face_id):
+        params = {
+            'user_id' : "%s" % face_id,
+            'v' : self.API_VERSION,
+            'order' : 'hints',
+        }
+        return self.api_get(method = 'friends.get', params=params)
 
     def get_group_wall_by_api(self, group_id):
         params = {
