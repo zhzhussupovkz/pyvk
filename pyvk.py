@@ -34,9 +34,6 @@ import os
 import json
 import re
 
-import random
-import string
-
 class Pyvk:
 
     FRIENDS_URL = 'al_friends.php'
@@ -295,23 +292,25 @@ class Pyvk:
             'please_dont_ddos':'1',
         }
         audios_data = self.post_request(self.AUDIOS_URL, data)
+
         start = audios_data.find('all')
-        end = audios_data.find(']]}') + 2
-        final = audios_data[start:end].replace('all":', '').strip()
-        final = unicode(final, 'cp1251')
-        try:
-            audios_list = ast.literal_eval(final)
-            for a in audios_list:
-                mp3 = a[2][:a[2].find('.mp3')+4]
-                current = {
-                    'mp3' : mp3,
-                    'author' : a[5],
-                    'name' : a[6],
-                    'duration' : a[4],
-                }
-                audios.append(current)
-        except Exception, e:
-            print e
+        if start != -1:
+            end = audios_data.find(']]}') + 2
+            final = audios_data[start:end].replace('all":', '').strip()
+            final = unicode(final, 'cp1251')
+            try:
+                audios_list = ast.literal_eval(final)
+                for a in audios_list:
+                    mp3 = a[2][:a[2].find('.mp3')+4]
+                    current = {
+                        'mp3' : mp3,
+                        'author' : a[5],
+                        'name' : a[6],
+                        'duration' : a[4],
+                    }
+                    audios.append(current)
+            except Exception, e:
+                print e
         return audios
 
     # get group's audios
@@ -326,22 +325,23 @@ class Pyvk:
         }
         audios_data = self.post_request(self.AUDIOS_URL, data)
         start = audios_data.find('all')
-        end = audios_data.find(']]}') + 2
-        final = audios_data[start:end].replace('all":', '').strip()
-        final = unicode(final, 'cp1251')
-        try:
-            audios_list = ast.literal_eval(final)
-            for a in audios_list:
-                mp3 = a[2][:a[2].find('.mp3')+4]
-                current = {
-                    'mp3' : mp3,
-                    'author' : a[5],
-                    'duration' : a[4],
-                    'name' : a[6],
-                }
-                audios.append(current)
-        except Exception, e:
-            print e
+        if start != -1:
+            end = audios_data.find(']]}') + 2
+            final = audios_data[start:end].replace('all":', '').strip()
+            final = unicode(final, 'cp1251')
+            try:
+                audios_list = ast.literal_eval(final)
+                for a in audios_list:
+                    mp3 = a[2][:a[2].find('.mp3')+4]
+                    current = {
+                        'mp3' : mp3,
+                        'author' : a[5],
+                        'duration' : a[4],
+                        'name' : a[6],
+                    }
+                    audios.append(current)
+            except Exception, e:
+                print e
         return audios
 
     # download user's audios
@@ -1264,33 +1264,83 @@ class Pyvk:
         publications = []
         if tab:
             try:
-                publications_data = self.get_page(self.vk_url + "/id%s" % face_id)
+                # publications_data = self.get_page(self.vk_url + "/id%s" % face_id)
+                # if publications_data:
+                #     try:
+                #         tree = lxml.html.fromstring(publications_data)
+                #         links = tree.xpath('.//a[@class="wi_date"]/@href')
+                #         post_dates = tree.xpath('.//a[@class="wi_date"]')
+                #         for i in range(0, len(links)):
+                #             post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
+                #             if post_page:
+                #                 post_tree = lxml.html.fromstring(post_page)
+                #                 authors = post_tree.xpath('.//a[@class="pi_author"]')
+                #                 author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
+                #                 images = post_tree.xpath('.//img[@class="wi_img"]/@src')
+                #                 text = post_tree.xpath('.//div[@class="pi_text"]')
+
+                #                 if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
+                #                     images[0] = self.vk_url + images[0],
+                #                 current = {
+                #                     'author' : authors[0].text_content(),
+                #                     'date' : post_dates[i].text,
+                #                     'link' : self.vk_url + '/' + links[i].strip('/'),
+                #                     'image' : images[0],
+                #                     'text' : etree.tostring(text[0], pretty_print=True),
+                #                 }
+                #                 publications.append(current)
+                #     except Exception, e:
+                #         print e
+
+                headers = {
+                            ':host' : 'vk.com',
+                            ':method' : 'POST',
+                            ':path' : '/' + self.WALL_URL,
+                            ':scheme' : 'https',
+                            ':version' : 'HTTP/1.1',
+                            'accept' : '*/*',
+                            'accept-language' : 'en-US,en;q=0.8',
+                            'content-type' : 'application/x-www-form-urlencoded',
+                            'origin' : self.vk_url,
+                            'referer' : self.vk_url + "/id%s" % face_id,
+                            'x-requested-with' : 'XMLHttpRequest',
+                        }
+
+                data = {
+                    'act' : 'get_wall',
+                    'al' : '1',
+                    'owner_id' : "%s" % face_id,
+                    'type' : 'own',
+                }
+                data['offset'] = 0 #j * 10
+                publications_data = self.post_request(self.WALL_URL, data, headers=headers)
                 if publications_data:
                     try:
-                        tree = lxml.html.fromstring(publications_data)
-                        links = tree.xpath('.//a[@class="wi_date"]/@href')
-                        post_dates = tree.xpath('.//a[@class="wi_date"]')
-                        for i in range(0, len(links)):
-                            post_page = self.get_page(self.vk_url + '/' + links[i].strip('/'))
-                            if post_page:
-                                post_tree = lxml.html.fromstring(post_page)
-                                authors = post_tree.xpath('.//a[@class="pi_author"]')
-                                author_ids = post_tree.xpath('.//a[@class="pi_author"]/@href')
-                                images = post_tree.xpath('.//img[@class="wi_img"]/@src')
-                                text = post_tree.xpath('.//div[@class="pi_text"]')
+                        start = publications_data.find('<div class="post_table">')
+                        end = publications_data.find('<!><!json>[]')
+                        final = publications_data[start:end]
+                        final = unicode(final, 'cp1251')
+                        tree = lxml.html.fromstring(final)
+                        links = tree.xpath('.//span[@class="post_like_link fl_l"]/@id')
+                        authors = tree.xpath('.//div[@class="wall_text"]//a[@class="author"]')
+                        dates = tree.xpath('.//span[@class="rel_date"]')
+                        images = tree.xpath('.//div[@class="post_image"]//a[@class="post_image"]//img/@src')
+                        text = tree.xpath('.//div[@class="wall_text"]')
 
-                                if 'camera' in images[0] or 'deactivated' in images[0] or 'images' in images[0]:
-                                    images[0] = self.vk_url + images[0],
-                                current = {
-                                    'author' : authors[0].text_content(),
-                                    'date' : post_dates[i].text,
-                                    'link' : self.vk_url + '/' + links[i].strip('/'),
-                                    'image' : images[0],
-                                    'text' : etree.tostring(text[0], pretty_print=True),
-                                }
-                                publications.append(current)
+                        for i in range(0, len(links)):
+                            if images[i][0] == '/':
+                                images[i] = self.vk_url + images[i],
+                            current = {
+                                'author' : authors[i].text_content(),
+                                'date' : dates[i].text,
+                                'link' : self.vk_url + '/' + links[i].replace('like_link', 'wall').strip('/'),
+                                'image' : images[i],
+                                'text' : etree.tostring(text[i], pretty_print=True),
+                            }
+                            publications.append(current)
                     except Exception, e:
                         print e
+
             except Exception, e:
                 print e
         else:
@@ -1344,7 +1394,7 @@ class Pyvk:
                         data = {
                             'act' : 'get_wall',
                             'al' : '1',
-                            'owner_id' : "%s" % group_id,
+                            'owner_id' : "%s" % face_id,
                             'type' : 'own',
                         }
                         data['offset'] = 0 #j * 10
@@ -1393,7 +1443,7 @@ class Pyvk:
                         data = {
                             'act' : 'get_wall',
                             'al' : '1',
-                            'owner_id' : "%s" % group_id,
+                            'owner_id' : "%s" % face_id,
                             'type' : 'own',
                         }
                         data['offset'] = j * 10
