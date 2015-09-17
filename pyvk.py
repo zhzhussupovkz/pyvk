@@ -34,7 +34,14 @@ import os
 import json
 import re
 
-class Pyvk:
+import sys
+# from PyQt4 import QtGui, QtCore, QtWebKit, QtNetwork
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from PyQt4.QtWebKit import *
+
+class Pyvk():
 
     FRIENDS_URL = 'al_friends.php'
     GROUPS_URL = 'al_groups.php'
@@ -48,7 +55,13 @@ class Pyvk:
     API_URL = 'https://api.vk.com/method'
     API_VERSION = '5.31'
 
-    def __init__(self, login, password):
+    def __init__(self, login, password, url = "http://vk.com"):
+
+        # cookie jar
+        # ncookieJar = QtNetwork.QNetworkCookieJar()
+        # self.networkAccessManager = QtNetwork.QNetworkAccessManager()
+        # self.networkAccessManager.setCookieJar(ncookieJar)
+
         self.login = login
         self.password = password
         self.login_url = 'https://login.vk.com'
@@ -70,6 +83,42 @@ class Pyvk:
         self.opener.addheaders.append(('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36'))
         self.qd = {}
         self.action_login()
+
+    # class myWebView(QtWebKit.QWebView):
+    #     _windows = set()
+
+    #     def __init__(self, parent=None):
+    #         super(myWebView, self).__init__(parent)
+    #         self.settings().setAttribute(QtWebKit.QWebSettings.JavascriptEnabled, True)
+    #         self.settings().setAttribute(QtWebKit.QWebSettings.JavascriptCanOpenWindows, True)
+
+    #         self.page().setNetworkAccessManager(self.networkAccessManager)
+
+    #         self.load(QtCore.QUrl(self.mobile_vk_url))
+
+    #     @classmethod
+    #     def _removeWindow(cls, window):
+    #         if window in cls._windows:
+    #             cls._windows.remove(window)
+
+    #     @classmethod
+    #     def newWindow(cls):
+    #         window = cls()
+    #         cls._windows.add(window)
+    #         return window
+
+    #     def closeEvent(self, event):
+    #         self._removeWindow(self)
+    #         event.accept()
+
+    #     def createWindow(self, webWindowType):
+    #         window = self.newWindow()
+    #         if webWindowType == QtWebKit.QWebPage.WebModalDialog:
+    #             window.setWindowModality(QtCore.Qt.ApplicationModal)
+
+    #         window.show()
+
+    #         return window
 
     # get ip_h
     def get_ip_h(self):
@@ -137,10 +186,13 @@ class Pyvk:
         return self.get_page(self.vk_url)
 
     # get page
-    def get_page(self, url):
+    def get_page(self, url, headers = {}):
         if not self.cj._cookies:
             self.action_login()
         try:
+            if headers:
+                for k,v in headers.iteritems():
+                    self.opener.addheaders.append((k, v))
             resp = self.opener.open(url)
             if resp.getcode() == 200:
                 return resp.read()
@@ -1516,6 +1568,66 @@ class Pyvk:
                 return result
             else:
                 return None
+        except Exception, e:
+            print e
+
+    def account_wall_post_photo(self, message, photo, face_id):
+        try:
+            # current_cookie = ''
+            # for c in self.cj:
+            #     current_cookie += '%s=%s; ' % (c.name, c.value)
+
+            # current_cookie += 'remixdt=10800; remixshow_fvbar=1; remixvkcom_done=1; audio_vol=100; remixflash=17.0.0; remixscreen_depth=24; remixseenads=-1'
+
+            # headers = {
+            #     'Accept' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            #     'Accept-Language' : 'en-US,en;q=0.5',
+            #     'Cache-Control' : 'no-cache',
+            #     'Connection' : 'keep-alive',
+            #     # 'Content-Type' : 'application/x-www-form-urlencoded; charset=UTF-8',
+            #     'Host' : 'm.vk.com',
+            #     # 'Pragma' : 'no-cache',
+            #     # 'Referer' : 'http://m.vk.com/id%s' % face_id,
+            #     # 'X-Requested-With' : 'XMLHttpRequest',
+            #     'Cookie' : current_cookie,
+            # }
+
+            # url = self.mobile_vk_url + "/id%s" % face_id
+            # print url
+
+            # info = {}
+            # page = self.get_page(url)
+            # print page
+            # if page:
+            #     tree = lxml.html.fromstring(page)
+            #     upload_url = tree.xpath('.//input[@class="inline_upload"]/@data-upload-url')
+            #     # data = {
+            #     #     '_ref' : "id%s" % face_id,
+            #     #     'message' : message,
+            #     # }
+            #     # enc_data = urllib.urlencode(data)
+            #     # headers['Content-Length'] = len(enc_data)
+            #     # result = self.post_request(action[1:], data, headers=headers, mobile=True)
+            #     print upload_url[0]
+            #     result = 1
+            #     return result
+            # else:
+            #     return None
+
+            # # cookie jar
+            # cookieJar = QtNetwork.QNetworkCookieJar()
+            # networkAccessManager = QtNetwork.QNetworkAccessManager()
+            # networkAccessManager.setCookieJar(cookieJar)
+
+            app = QApplication(sys.argv)
+
+            web = QWebView()
+            web.load(QUrl(self.mobile_vk_url + "/id%s" % face_id))
+            web.show()
+
+            sys.exit(app.exec_())
+            return 1
+
         except Exception, e:
             print e
 
