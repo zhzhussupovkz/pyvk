@@ -57,11 +57,6 @@ class Pyvk():
 
     def __init__(self, login, password, url = "http://vk.com"):
 
-        # cookie jar
-        # ncookieJar = QtNetwork.QNetworkCookieJar()
-        # self.networkAccessManager = QtNetwork.QNetworkAccessManager()
-        # self.networkAccessManager.setCookieJar(ncookieJar)
-
         self.login = login
         self.password = password
         self.login_url = 'https://login.vk.com'
@@ -69,60 +64,30 @@ class Pyvk():
         self.mobile_vk_url = 'http://m.vk.com'
 
         self.cj = cookielib.CookieJar()
-        # self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj), urllib2.HTTPRedirectHandler())
-
-        # myProxy = urllib2.ProxyHandler({"https" : "46.39.233.46:8080"})
-        # myProxy = urllib2.ProxyHandler({"http" : "46.48.188.96:3128"})
-
         self.opener = urllib2.build_opener(
                 urllib2.HTTPCookieProcessor(self.cj), 
                 urllib2.HTTPRedirectHandler()
-                # myProxy
-                # urllib2.ProxyHandler({'https': 'http://localhost:8080'})
                 )
-        self.opener.addheaders.append(('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36'))
+
+        self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.94 Safari/537.36')]
         self.qd = {}
         self.action_login()
-
-    # class myWebView(QtWebKit.QWebView):
-    #     _windows = set()
-
-    #     def __init__(self, parent=None):
-    #         super(myWebView, self).__init__(parent)
-    #         self.settings().setAttribute(QtWebKit.QWebSettings.JavascriptEnabled, True)
-    #         self.settings().setAttribute(QtWebKit.QWebSettings.JavascriptCanOpenWindows, True)
-
-    #         self.page().setNetworkAccessManager(self.networkAccessManager)
-
-    #         self.load(QtCore.QUrl(self.mobile_vk_url))
-
-    #     @classmethod
-    #     def _removeWindow(cls, window):
-    #         if window in cls._windows:
-    #             cls._windows.remove(window)
-
-    #     @classmethod
-    #     def newWindow(cls):
-    #         window = cls()
-    #         cls._windows.add(window)
-    #         return window
-
-    #     def closeEvent(self, event):
-    #         self._removeWindow(self)
-    #         event.accept()
-
-    #     def createWindow(self, webWindowType):
-    #         window = self.newWindow()
-    #         if webWindowType == QtWebKit.QWebPage.WebModalDialog:
-    #             window.setWindowModality(QtCore.Qt.ApplicationModal)
-
-    #         window.show()
-
-    #         return window
+        # print self.cj._cookies
 
     # get ip_h
     def get_ip_h(self):
         try:
+            headers = {
+                'Accept' : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language' : 'en-US,en;q=0.8',
+                'Connection' : 'keep-alive',
+                'Host' : 'vk.com',
+                'Content-Type' : 'text/html; charset=UTF-8',
+            }
+
+            for k, v in headers.iteritems():
+                self.opener.addheaders.append((k, v))
+
             resp = self.opener.open(self.vk_url)
             if resp.getcode() == 200:
                 page = resp.read()
@@ -130,11 +95,12 @@ class Pyvk():
                 action = tree.xpath('.//form[@action]')[0].get('action')
                 o = urlparse.urlparse(action)
                 qd = urlparse.parse_qs(o.query)
-                self.qd['ip_h'] = qd.get('ip_h')[0]
-                self.qd['lg_h'] = qd.get('lg_h')[0]
-                self.qd['_origin'] = qd.get('_origin')[0]
-                self.qd['act'] = qd.get('act')[0]
-                self.qd['utf8'] = qd.get('utf8')[0]
+                for k, v in qd.iteritems():
+                    self.qd[k] = v[0]
+
+                hidden_params = tree.xpath('.//form[@id="quick_login_form"]/input[@type="hidden"]')
+                for p in hidden_params:
+                    self.qd[p.get("name")] = p.get("value")
                 return self.qd
             else:
                 return None
@@ -260,8 +226,6 @@ class Pyvk():
             current_cookie += '%s=%s; ' % (c.name, c.value)
 
         current_cookie += 'remixdt=10800; remixshow_fvbar=1; remixvkcom_done=1; audio_vol=100; remixflash=17.0.0; remixscreen_depth=24; remixseenads=-1'
-
-        # print current_cookie
 
         headers = {
             'Accept' : '*/*',
