@@ -1595,6 +1595,52 @@ class Pyvk():
         except Exception, e:
             print e
 
+    # add friend (send)
+    def add_friend(self, face_id):
+        page = self.get_page(self.vk_url + "/id%s" % face_id)
+        if page:
+            try:
+                tree = lxml.html.fromstring(page)
+                hash_str = tree.xpath('.//button[@class="flat_button button_wide"]/@onclick')
+                start = hash_str[0].find('this,')
+                end = hash_str[0].find('event')
+                hash_s = hash_str[0][start:end].replace("this", "").replace(" ", "").strip("")
+                h = re.sub("[^0-9a-zA-Z]", "", str(hash_s))[:-1]
+
+                data = {
+                    'act' : 'add',
+                    'al' : '1',
+                    'from' : 'profile',
+                    'hash' : h,
+                    'mid' : face_id,
+                }
+
+                current_cookie = ''
+                for c in self.cj:
+                    current_cookie += '%s=%s; ' % (c.name, c.value)
+
+                current_cookie += 'remixdt=10800; remixshow_fvbar=1; remixvkcom_done=1; audio_vol=100; remixflash=17.0.0; remixscreen_depth=24; remixseenads=-1'
+
+                headers = {
+                    'Accept' : '*/*',
+                    'Accept-Language' : 'en-US,en;q=0.8',
+                    'Connection' : 'keep-alive',
+                    'Content-Type' : 'application/x-www-form-urlencoded',
+                    'Cookie' : current_cookie,
+                    'Host' : 'vk.com',
+                    'Origin' : 'http://vk.com',
+                    'Referer' : 'http://vk.com/id%s' % face_id,
+                    'X-Requested-With' : 'XMLHttpRequest',
+                }
+
+                friends_data = self.post_request(self.FRIENDS_URL, data, headers)
+                return friends_data
+
+            except Exception, e:
+                print e
+        return None
+
+
     def api_get(self, method = 'wall.get', params = {}, access_token = None):
         query = urllib.urlencode(params)
         url = self.API_URL + "/%s?%s" % (method, query)
